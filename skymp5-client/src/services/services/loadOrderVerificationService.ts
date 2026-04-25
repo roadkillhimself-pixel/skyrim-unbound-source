@@ -30,6 +30,10 @@ export class LoadOrderVerificationService extends ClientListener {
     return settingsService.getServerMods()
       .then((serverMods) => {
         this.printModOrder('Server load order:', serverMods);
+        if (serverMods.length === 0) {
+          printConsole('Server mod list unavailable, skipping load order overlay.');
+          return;
+        }
         if (clientMods.length < serverMods.length) {
           throw new Error(`Missing some server mods. Server has ${serverMods.length}, we have ${clientMods.length}`);
         }

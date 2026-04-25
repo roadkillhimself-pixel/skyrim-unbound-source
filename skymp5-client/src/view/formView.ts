@@ -1,4 +1,4 @@
-import { Actor, ActorBase, createText, destroyText, Form, FormType, Game, Keyword, NetImmerse, ObjectReference, once, printConsole, setTextPos, setTextSize, setTextString, storage, TESModPlatform, Utility, worldPointToScreenPoint } from "skyrimPlatform";
+import { Actor, ActorBase, createText, destroyText, Form, FormType, Game, Keyword, NetImmerse, ObjectReference, once, printConsole, setTextFont, setTextPos, setTextSize, setTextString, storage, TESModPlatform, Utility, worldPointToScreenPoint } from "skyrimPlatform";
 import { setDefaultAnimsDisabled, applyAnimation } from "../sync/animation";
 import { Appearance, applyAppearance } from "../sync/appearance";
 import { isBadMenuShown, applyEquipment } from "../sync/equipment";
@@ -31,6 +31,12 @@ export const getScreenResolution = (): ScreenResolution => {
   }
   return _screenResolution;
 }
+
+const nicknameFontName = "Tavern";
+const nicknameFontSize = 0.72;
+const nicknameFontColor = [1, 1, 1, 0.95];
+const nicknameHeightOffset = 40;
+const maxNicknameDrawDistance = 1400;
 
 export class FormView {
   constructor(private remoteRefrId?: number) { }
@@ -330,6 +336,11 @@ export class FormView {
 
     this.localImmortal = false;
     this.removeNickname();
+    const typingIndicatorTextId = (this.state as Record<string, unknown>).typingIndicatorTextId;
+    if (typeof typingIndicatorTextId === "number" && typingIndicatorTextId > 0) {
+      destroyText(typingIndicatorTextId);
+      (this.state as Record<string, unknown>).typingIndicatorTextId = 0;
+    }
   }
 
   private lastHarvestedApply = 0;
@@ -546,25 +557,25 @@ export class FormView {
 
     if (FormView.isDisplayingNicknames && this.refrId && model.appearance?.name) {
       const headPart = "NPC Head [Head]";
-      const maxNicknameDrawDistance = 1000;
       const playerActor = Game.getPlayer()!;
-      const isVisibleByPlayer = !model.movement?.isSneaking
-        && playerActor.getDistance(refr) <= maxNicknameDrawDistance
-        && playerActor.hasLOS(refr)
-        && !this.isSweetHidePerson(refr);
+      const isOwnerActor = playerActor.getFormID() === refr.getFormID();
+      const isVisibleByPlayer = !this.isSweetHidePerson(refr)
+        && (isOwnerActor || (playerActor.getDistance(refr) <= maxNicknameDrawDistance
+          && playerActor.hasLOS(refr)));
       if (isVisibleByPlayer) {
         const headScreenPos = worldPointToScreenPoint([
           NetImmerse.getNodeWorldPositionX(refr, headPart, false),
           NetImmerse.getNodeWorldPositionY(refr, headPart, false),
-          NetImmerse.getNodeWorldPositionZ(refr, headPart, false) + 32
+          NetImmerse.getNodeWorldPositionZ(refr, headPart, false) + nicknameHeightOffset
         ])[0];
         const resolution = getScreenResolution();
         const textXPos = Math.round(headScreenPos[0] * resolution.width);
         const textYPos = Math.round((1 - headScreenPos[1]) * resolution.height);
 
         if (!this.textNameId && headScreenPos[2] > 0) {
-          this.textNameId = createText(textXPos, textYPos, refr.getDisplayName(), [1, 1, 1, 0.8]);
-          setTextSize(this.textNameId, 0.5);
+          this.textNameId = createText(textXPos, textYPos, refr.getDisplayName(), nicknameFontColor, nicknameFontName);
+          setTextFont(this.textNameId, nicknameFontName);
+          setTextSize(this.textNameId, nicknameFontSize);
           SpApiInteractor.getControllerInstance().emitter.emit("nicknameCreate", {
             remoteRefrId: this.getRemoteRefrId(),
             textId: this.textNameId
@@ -575,6 +586,7 @@ export class FormView {
             this.removeNickname();
           }
           if (this.textNameId) {
+            setTextString(this.textNameId, refr.getDisplayName());
             setTextPos(this.textNameId, textXPos, textYPos);
           }
         }

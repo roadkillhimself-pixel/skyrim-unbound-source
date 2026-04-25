@@ -70,13 +70,12 @@ MyChromiumApp::MyChromiumApp(
 
 void MyChromiumApp::Initialize(bool initChromium) noexcept
 {
-  if (m_pGameClient)
-    return;
+  if (!m_pGameClient) {
+    m_pGameClient =
+      new OverlayClient(m_pRenderProvider->Create(), onProcessMessage);
+  }
 
-  m_pGameClient =
-    new OverlayClient(m_pRenderProvider->Create(), onProcessMessage);
-
-  if (initChromium == false)
+  if (!initChromium || m_chromiumInitialized)
     return;
 
   CefMainArgs args(GetModuleHandleA(nullptr));
@@ -153,7 +152,10 @@ void MyChromiumApp::Initialize(bool initChromium) noexcept
                                      browserSettings, nullptr, nullptr)) {
 
     showError("CreateBrowser failed");
+    return;
   }
+
+  m_chromiumInitialized = true;
 }
 
 void MyChromiumApp::ExecuteAsync(
@@ -215,32 +217,7 @@ void MyChromiumApp::InjectMouseMove(const float aX, const float aY,
                                     const uint32_t aModifier,
                                     bool isBrowserFocused) const noexcept
 {
-  std::string url;
-  {
-    std::lock_guard l(share.m);
-    url = share.url;
-  }
-
   if (m_pGameClient && m_pGameClient->IsReady()) {
-    thread_local clock_t g_lastExecute = 0;
-    if (clock() - g_lastExecute > CLOCKS_PER_SEC) {
-      g_lastExecute = clock();
-      bool urlChanged = false;
-      {
-        std::lock_guard l(share2.m);
-        std::swap(urlChanged, share2.urlChanged);
-      }
-
-      if (urlChanged) {
-        if (url.size() > 0) {
-          m_pGameClient->GetBrowser()->GetMainFrame()->LoadURL(url);
-        } else {
-          m_pGameClient->GetBrowser()->GetMainFrame()->LoadURL(
-            "file:///Data/Platform/UI/index.html");
-        }
-      }
-    }
-
     CefMouseEvent ev;
 
     ev.x = aX;
@@ -252,6 +229,35 @@ void MyChromiumApp::InjectMouseMove(const float aX, const float aY,
     if (isBrowserFocused && aX >= 0 && aY >= 0)
       m_pGameClient->GetBrowser()->GetHost()->SendMouseMoveEvent(ev, false);
   }
+}
+
+void MyChromiumApp::ApplyPendingUrlLoadIfNeeded() const noexcept
+{
+  if (!m_pGameClient || !m_pGameClient->IsReady()) {
+    return;
+  }
+
+  bool urlChanged = false;
+  {
+    std::lock_guard l(share2.m);
+    std::swap(urlChanged, share2.urlChanged);
+  }
+
+  if (!urlChanged) {
+    return;
+  }
+
+  std::string url;
+  {
+    std::lock_guard l(share.m);
+    url = share.url;
+  }
+
+  if (url.empty()) {
+    url = "file:///Data/Platform/UI/index.html";
+  }
+
+  m_pGameClient->GetBrowser()->GetMainFrame()->LoadURL(url);
 }
 
 void MyChromiumApp::InjectMouseWheel(const uint16_t aX, const uint16_t aY,
@@ -279,6 +285,10 @@ void MyChromiumApp::ExecuteJavaScript(const std::string& src) const noexcept
 
 bool MyChromiumApp::LoadUrl(const char* url) noexcept
 {
+  if (m_pGameClient && !m_chromiumInitialized) {
+    Initialize(true);
+  }
+
   {
     std::lock_guard l(share.m);
     share.url = url;
@@ -292,6 +302,8 @@ bool MyChromiumApp::LoadUrl(const char* url) noexcept
 
 void MyChromiumApp::RunTasks()
 {
+  ApplyPendingUrlLoadIfNeeded();
+
   if (m_pGameClient && m_pGameClient->IsReady()) {
     bool isBrowserFocused = CEFUtils::DInputHook::ChromeFocus();
 

@@ -77,16 +77,21 @@ class App extends React.Component {
   }
 
   render() {
+    const shouldRenderLegacyWidgets =
+      window.__skympAllowLegacyWidgets === true &&
+      Array.isArray(this.state.widgets) &&
+      this.state.widgets.length > 0;
+
     if (this.state.isLoggined) {
       return (
-        <div className={`App ${!window.hasOwnProperty('skyrimPlatform') ? 'bg' : ''}`}>
+        <div className="App">
           <AnimList />
           <Chat />
           <SkillsMenu />
           <TestMenu />
         </div>
       );
-    } else if (this.state.widgets) {
+    } else if (shouldRenderLegacyWidgets) {
       return (
         <div style={{ position: 'static' }}>
           {this.state.widgets.map((widget, index) =>

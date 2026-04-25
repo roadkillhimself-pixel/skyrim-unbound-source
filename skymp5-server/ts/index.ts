@@ -21,6 +21,7 @@ import { MasterClient } from "./systems/masterClient";
 import { Spawn } from "./systems/spawn";
 import { Login } from "./systems/login";
 import { DiscordBanSystem } from "./systems/discordBanSystem";
+import { DiscordUpdatesSystem } from "./systems/discordUpdatesSystem";
 import { MasterApiBalanceSystem } from "./systems/masterApiBalanceSystem";
 import { EventEmitter } from "events";
 import { pid } from "process";
@@ -32,8 +33,41 @@ import * as os from "os";
 import * as manifestGen from "./manifestGen";
 import { createScampServer } from "./scampNative";
 import { MetricsSystem, tickDurationHistogram, tickDurationSummary } from "./systems/metricsSystem";
+import { createServerCrashBundle } from "./crashBundle";
 
 const gamemodeCache = new Map<string, string>();
+const crashLogPath = path.resolve("", "server-crash.log");
+
+function stringifyCrashArg(arg: unknown): string {
+  if (arg instanceof Error) {
+    return arg.stack || `${arg.name}: ${arg.message}`;
+  }
+
+  if (typeof arg === "string") {
+    return arg;
+  }
+
+  try {
+    return JSON.stringify(arg, null, 2);
+  } catch {
+    return String(arg);
+  }
+}
+
+function persistCrashReport(kind: string, args: unknown[]) {
+  const lines = [
+    "============================================================",
+    `[${new Date().toISOString()}] ${kind}`,
+    ...args.map((arg, index) => `arg${index}: ${stringifyCrashArg(arg)}`),
+    "",
+  ];
+
+  try {
+    fs.appendFileSync(crashLogPath, `${lines.join("\n")}\n`, "utf8");
+  } catch (e) {
+    console.error(`Failed to write crash log to ${crashLogPath}: ${e}`);
+  }
+}
 
 function requireTemp(module: string) {
   // https://blog.mastykarz.nl/create-temp-directory-app-node-js/
@@ -196,6 +230,7 @@ const main = async () => {
     new Spawn(log),
     new Login(log, maxPlayers, master, port, masterKey, offlineMode),
     new DiscordBanSystem(),
+    new DiscordUpdatesSystem(),
     new MasterApiBalanceSystem(log, maxPlayers, master, port, masterKey, offlineMode),
   );
 
@@ -315,6 +350,13 @@ main();
 // This is needed at least to handle axios errors in masterClient
 // TODO: implement alerts
 process.on("unhandledRejection", (...args) => {
+  persistCrashReport("unhandledRejection", args);
+  try {
+    const bundleDir = createServerCrashBundle("unhandledRejection", args);
+    console.error(`Crash bundle created at ${bundleDir}`);
+  } catch (e) {
+    console.error(`Failed to create crash bundle for unhandledRejection: ${e}`);
+  }
   console.error("[!!!] unhandledRejection")
   console.error(...args);
 });
@@ -322,6 +364,13 @@ process.on("unhandledRejection", (...args) => {
 // setTimeout on gamemode should not be able to kill the entire server
 // TODO: implement alerts
 process.on("uncaughtException", (...args) => {
+  persistCrashReport("uncaughtException", args);
+  try {
+    const bundleDir = createServerCrashBundle("uncaughtException", args);
+    console.error(`Crash bundle created at ${bundleDir}`);
+  } catch (e) {
+    console.error(`Failed to create crash bundle for uncaughtException: ${e}`);
+  }
   console.error("[!!!] uncaughtException")
   console.error(...args);
 });

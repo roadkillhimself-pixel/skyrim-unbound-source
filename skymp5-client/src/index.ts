@@ -57,6 +57,8 @@ import { SweetTaffyNicknamesService } from "./services/services/sweetTaffyNickna
 import { ServerJsVerificationService } from "./services/services/serverJsVerificationService";
 import { SweetTaffyEvalService } from "./services/services/sweetTaffyEvalService";
 
+const startupBrowserBootstrapUrl = "file:///Data/Platform/UI/startup.html?v=skyrim-unbound-startup-20260422-10";
+
 once("update", () => {
   Utility.setINIBool("bAlwaysActive:General", true);
   Game.setGameSettingInt("iDeathDropWeaponChance", 0);
@@ -129,4 +131,14 @@ const main = () => {
 // I saw "attempt to call hooks.add while in hook context" error
 // I'm not sure if it's a C++ bug in SkyrimPlatform or an artifact of webpack+hotreload
 // But let's for now ensure that "main" executes inside tick context
-once("tick", main);
+once("tick", () => {
+  try {
+    sp.browser.setVisible(true);
+    sp.browser.setFocused(false);
+    sp.browser.loadUrl(startupBrowserBootstrapUrl);
+  } catch {
+    // Best effort: BrowserService will retry once it is constructed.
+  }
+
+  main();
+});

@@ -28,6 +28,9 @@ Napi::Value BrowserApiTilted::SetVisible(const Napi::CallbackInfo& info)
 {
   bool& v = CEFUtils::DX11RenderHandler::Visible();
   v = NapiHelper::ExtractBoolean(info[0], "visible");
+  if (v) {
+    GetApp().Initialize(true);
+  }
   return info.Env().Undefined();
 }
 

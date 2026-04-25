@@ -1,16 +1,20 @@
 #include "Win32Api.h"
+#include <shellapi.h>
 
 Napi::Value Win32Api::LoadUrl(const Napi::CallbackInfo& info)
 {
   auto str = NapiHelper::ExtractString(info[0], "url");
-  if (str.substr(0, 8) != "https://") {
+  const bool isHttps = str.substr(0, 8) == "https://";
+  const bool isHttp = str.substr(0, 7) == "http://";
+  if (!isHttps && !isHttp) {
     throw std::runtime_error(
-      "Permission denied, only 'https://' prefix is allowed");
+      "Permission denied, only 'https://' and 'http://' prefixes are allowed");
   } else {
-    // CoInitializeEx is needed to call this function, but it seems we already
-    // have this call somewhere in code, related link:
-    // https://docs.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shellexecutea
-    ShellExecute(0, 0, str.c_str(), 0, 0, SW_SHOW);
+    const auto result =
+      ShellExecuteA(nullptr, "open", str.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<intptr_t>(result) <= 32) {
+      throw std::runtime_error("Failed to open URL via ShellExecute");
+    }
   }
   return info.Env().Undefined();
 }

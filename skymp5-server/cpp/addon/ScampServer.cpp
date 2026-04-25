@@ -305,6 +305,25 @@ ScampServer::ScampServer(const Napi::CallbackInfo& info)
                  partOne->worldState.isPapyrusHotReloadEnabled ? "enabled"
                                                                : "disabled");
 
+    if (serverSettings.find("disableVanillaScriptsInExterior") !=
+        serverSettings.end()) {
+      if (serverSettings.at("disableVanillaScriptsInExterior").is_boolean()) {
+        bool disableVanillaScriptsInExterior =
+          serverSettings.at("disableVanillaScriptsInExterior").get<bool>();
+        partOne->worldState.disableVanillaScriptsInExterior =
+          disableVanillaScriptsInExterior;
+        logger->info("disableVanillaScriptsInExterior is explicitly set to {}",
+                     disableVanillaScriptsInExterior);
+      } else {
+        logger->error("Unexpected value of disableVanillaScriptsInExterior "
+                      "setting, should be true or false");
+      }
+    } else {
+      logger->info("disableVanillaScriptsInExterior option is not found in "
+                   "the server configuration file. Using default value {}",
+                   partOne->worldState.disableVanillaScriptsInExterior);
+    }
+
     if (serverSettings["dataDir"] != nullptr) {
       dataDir = serverSettings["dataDir"];
     } else {

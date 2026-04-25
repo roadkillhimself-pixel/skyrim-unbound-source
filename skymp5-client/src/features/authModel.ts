@@ -1,9 +1,14 @@
 export interface RemoteAuthGameData {
   session: string;
-  masterApiId: number;
-  discordUsername: string | null;
-  discordDiscriminator: string | null;
-  discordAvatar: string | null;
+  playSession?: string | null;
+  masterApiId?: number | null;
+  discordUsername?: string | null;
+  discordDiscriminator?: string | null;
+  discordAvatar?: string | null;
+  accountId?: number | null;
+  accountUsername?: string | null;
+  selectedCharacterId?: number | null;
+  selectedCharacterName?: string | null;
 };
 
 export interface LocalAuthGameData {

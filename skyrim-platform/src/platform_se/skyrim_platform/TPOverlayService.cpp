@@ -61,8 +61,10 @@ void OverlayService::Create(RenderSystemD3D11* apRenderSystem)
   auto renderProvider = std::make_unique<D3D11RenderProvider>(apRenderSystem);
   overlay = new MyChromiumApp(std::move(renderProvider), onProcessMessage);
 
-  overlay->Initialize(BrowserApi::GetBackend() ==
-                      BrowserApi::Backend::kTilted);
+  // Chromium is now brought up lazily the first time the browser is shown.
+  // This keeps startup away from the CEF bootstrap path on machines that
+  // crash during the Bethesda-logo phase.
+  overlay->Initialize(false);
   overlay->GetClient()->Create();
 }
 

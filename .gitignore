@@ -5,6 +5,15 @@ node_modules
 .vscode
 .cache
 .vs
+misc/public-test/*.local.server-settings.json
+misc/public-test/skyrim-unbound-public-test.server-settings.json
+misc/public-test/skyrim-unbound-public-test.client-settings.json
+misc/public-test/client-launcher/*-state.json
+misc/public-test/website/*.log
+misc/debug/reports/
+skymp5-front/config.json
+d3dx9_42.log
+%s
 
 # vim
 .*.swp

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skyrim Unbound UCP</title>
+    <link rel="stylesheet" href="./app.css?v=skyrim-ucp-community-20260424-4" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="topbar__copy">
+          <p class="topbar__eyebrow">Skyrim Unbound</p>
+          <h1 id="serverName">Unified Control Panel</h1>
+          <div class="topbar__meta">
+            <span class="status-pill" id="serverHealthPill">Checking backend...</span>
+            <span id="serverStatus">Checking backend health...</span>
+          </div>
+        </div>
+
+        <div class="topbar__actions">
+          <a class="button button--ghost" href="/launcher/index.html">Launcher</a>
+          <a class="button button--ghost" href="/launcher/skyrim-unbound-client-package.zip">Package</a>
+          <button class="button button--ghost hidden" id="adminPanelButton" type="button">Admin panel</button>
+          <button class="button button--ghost hidden" id="logoutButton" type="button">Log out</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <aside class="rail rail--left">
+          <section class="surface identity-card" id="identityCard"></section>
+          <section class="surface rail-card" id="badgeCard"></section>
+          <section class="surface rail-card" id="aboutCard"></section>
+          <section class="surface rail-card" id="utilityCard"></section>
+        </aside>
+
+        <section class="surface workspace">
+          <div class="message-box" id="globalMessage" aria-live="polite"></div>
+
+          <section class="auth-shell" id="authShell">
+            <div class="workspace__header">
+              <div>
+                <h2>Account Access</h2>
+                <p class="workspace__subtitle">Use the same account for the web panel and the in-game login.</p>
+              </div>
+            </div>
+
+            <div class="auth-tabs" id="authTabs">
+              <button class="tab-button active" data-auth-tab="login" type="button">Log in</button>
+              <button class="tab-button" data-auth-tab="register" type="button">Register</button>
+              <button class="tab-button" data-auth-tab="recover" type="button">Recover</button>
+            </div>
+
+            <div class="auth-panels">
+              <form class="form-panel" id="loginForm" data-auth-panel="login">
+                <label class="field">
+                  <span>Username or email</span>
+                  <input name="login" type="text" autocomplete="username" required />
+                </label>
+                <label class="field">
+                  <span>Password</span>
+                  <input name="password" type="password" autocomplete="current-password" required />
+                </label>
+                <div class="form-actions">
+                  <button class="button button--primary" type="submit">Log in</button>
+                </div>
+              </form>
+
+              <form class="form-panel hidden" id="registerForm" data-auth-panel="register">
+                <label class="field">
+                  <span>Username</span>
+                  <input name="username" type="text" minlength="3" maxlength="32" required />
+                </label>
+                <label class="field">
+                  <span>Email</span>
+                  <input name="email" type="email" autocomplete="email" required />
+                </label>
+                <label class="field">
+                  <span>Password</span>
+                  <input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
+                </label>
+                <div class="form-actions">
+                  <button class="button button--primary" type="submit">Create account</button>
+                </div>
+              </form>
+
+              <section class="form-panel hidden" id="recoverPanel" data-auth-panel="recover">
+                <div class="card-title">Recover access</div>
+                <div class="form-note">Use email recovery if mail is configured. Security-question recovery is disabled by default on public servers unless staff enables an additional verification policy.</div>
+
+                <form id="forgotPasswordForm">
+                  <label class="field">
+                    <span>Username or email</span>
+                    <input name="login" type="text" autocomplete="username" required />
+                  </label>
+                  <div class="form-actions">
+                    <button class="button button--ghost" type="submit">Send email reset link</button>
+                  </div>
+                </form>
+
+                <section class="content-card">
+                  <div class="card-title">Security Question Recovery</div>
+                  <form id="securityRecoveryStartForm">
+                    <label class="field">
+                      <span>Username or email</span>
+                      <input name="login" type="text" autocomplete="username" required />
+                    </label>
+                    <div class="form-actions">
+                      <button class="button button--primary" type="submit">Load recovery questions</button>
+                    </div>
+                  </form>
+
+                  <form class="hidden" id="securityRecoveryForm">
+                    <div class="panel-stack" id="securityRecoveryQuestionFields"></div>
+                    <label class="field">
+                      <span>New password</span>
+                      <input name="newPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
+                    </label>
+                    <label class="field">
+                      <span>Confirm new password</span>
+                      <input name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
+                    </label>
+                    <div class="form-actions">
+                      <button class="button button--primary" type="submit">Submit recovery answers</button>
+                    </div>
+                  </form>
+                </section>
+              </section>
+            </div>
+
+            <section class="form-panel hidden" id="loginChallengePanel">
+              <div class="card-title">Finish sign-in</div>
+              <div class="form-note" id="loginChallengeCopy">Enter the verification steps required for this login.</div>
+              <form id="loginChallengeForm">
+                <label class="field hidden" id="loginChallengeEmailField">
+                  <span>Email OTP</span>
+                  <input name="emailOtp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" />
+                </label>
+                <label class="field hidden" id="loginChallengeTotpField">
+                  <span>Authenticator Code</span>
+                  <input name="totpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit authenticator code" />
+                </label>
+                <div class="form-actions">
+                  <button class="button button--primary" type="submit">Verify and continue</button>
+                  <button class="button button--ghost" id="cancelLoginChallengeButton" type="button">Cancel</button>
+                </div>
+              </form>
+            </section>
+
+            <div class="message-box" id="authMessage" aria-live="polite"></div>
+          </section>
+
+          <section class="whitelist-shell hidden" id="whitelistShell">
+            <div class="workspace__header workspace__header--center">
+              <div>
+                <h2>Whitelist Required</h2>
+                <p class="workspace__subtitle">Before the rest of your UCP unlocks, you need to submit a Skyrim: RP character application for whitelist review.</p>
+              </div>
+            </div>
+
+            <section class="content-card whitelist-card">
+              <div class="notice" id="whitelistNotice"></div>
+              <div class="whitelist-progress" id="whitelistProgress"></div>
+              <div class="message-box" id="whitelistMessage" aria-live="polite"></div>
+              <div class="panel-stack" id="whitelistFeedback"></div>
+
+              <form class="content-card" id="whitelistStepForm">
+                <div class="workspace__header">
+                  <div>
+                    <div class="card-title" id="whitelistStepTitle">Phase 1</div>
+                    <p class="workspace__subtitle" id="whitelistStepHelp"></p>
+                  </div>
+                </div>
+                <label class="field">
+                  <span id="whitelistStepPromptLabel">Question</span>
+                  <textarea id="whitelistStepValue" name="value" rows="11" required></textarea>
+                </label>
+                <div class="form-actions">
+                  <button class="button button--ghost" id="whitelistBackButton" type="button">Previous Phase</button>
+                  <button class="button button--primary" id="whitelistSubmitButton" type="submit">Submit Phase</button>
+                </div>
+              </form>
+
+              <section class="content-card hidden" id="whitelistWaitingCard">
+                <div class="card-title" id="whitelistWaitingTitle">Application Pending Review</div>
+                <div class="form-note" id="whitelistWaitingCopy"></div>
+              </section>
+            </section>
+          </section>
+
+          <section class="hub-shell hidden" id="hubShell">
+            <div class="workspace-tabs" id="profileTabs">
+              <button class="workspace-tab active" data-tab="profile" type="button">Profile</button>
+              <button class="workspace-tab" data-tab="events" type="button">Events</button>
+              <button class="workspace-tab" data-tab="settings" type="button">Settings</button>
+              <button class="workspace-tab" data-tab="security" type="button">Security</button>
+              <button class="workspace-tab" data-tab="record" type="button">Server Record</button>
+              <button class="workspace-tab" data-tab="chatlogs" type="button">My Chatlogs</button>
+              <button class="workspace-tab" data-tab="friends" type="button">Community</button>
+            </div>
+
+            <section class="tab-panel" data-tab-panel="profile">
+              <div class="workspace__header">
+                <div>
+                  <h2>Profile</h2>
+                  <p class="workspace__subtitle">Identity, badges, and persistent character roster.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="profilePanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="events">
+              <div class="workspace__header">
+                <div>
+                  <h2>Events</h2>
+                  <p class="workspace__subtitle">Track public community gatherings, open the details, and mark your interest before the room fills.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="eventsPanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="settings">
+              <div class="workspace__header">
+                <div>
+                  <h2>Settings</h2>
+                  <p class="workspace__subtitle">Finalize unfinished slots and reserve new character space.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="settingsPanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="security">
+              <div class="workspace__header">
+                <div>
+                  <h2>Security</h2>
+                  <p class="workspace__subtitle">Sessions, recovery questions, new-IP OTP, email recovery, and authenticator-based 2FA.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="securityPanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="record">
+              <div class="workspace__header">
+                <div>
+                  <h2>Server Record</h2>
+                  <p class="workspace__subtitle">Your current standing, moderation history, ticket load, and application state.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="recordPanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="chatlogs">
+              <div class="workspace__header">
+                <div>
+                  <h2>My Chatlogs</h2>
+                  <p class="workspace__subtitle">Review the last 7 days of chat your selected character actually witnessed in range.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="chatlogsPanel"></div>
+            </section>
+
+            <section class="tab-panel" data-tab-panel="friends">
+              <div class="workspace__header">
+                <div>
+                  <h2>Community</h2>
+                  <p class="workspace__subtitle">Forum badge groups, Discord linking status, and future community perks.</p>
+                </div>
+              </div>
+              <div class="panel-stack" id="friendsPanel"></div>
+            </section>
+          </section>
+        </section>
+
+        <aside class="rail rail--right">
+          <section class="surface stat-card" id="profileStatCard"></section>
+          <section class="surface stat-card" id="activityStatCard"></section>
+          <section class="surface stat-card" id="recordStatCard"></section>
+        </aside>
+      </section>
+    </main>
+
+    <script src="./app.js?v=skyrim-ucp-community-20260425-1"></script>
+  </body>
+</html>

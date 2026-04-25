@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      html, body, #root {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        background: transparent;
+        background-color: transparent;
+      }
+
+      #root {
+        background: transparent;
+      }
+
+      body .login,
+      body .login-form,
+      body [class^="login-form--"],
+      body [class*=" login-form--"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+    </style>
+    <script>
+      (function () {
+        window.__skympAllowLegacyWidgets = false;
+        window.__skympFrontLoadedEventKey = 'front-loaded-ui';
+
+        const notifyLoaded = function () {
+          if (window.skyrimPlatform && window.skyrimPlatform.sendMessage) {
+            window.skyrimPlatform.sendMessage('front-loaded-ui');
+          }
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', notifyLoaded, { once: true });
+          return;
+        }
+
+        notifyLoaded();
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

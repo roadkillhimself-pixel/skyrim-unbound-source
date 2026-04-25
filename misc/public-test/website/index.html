@@ -1,0 +1,645 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skyrim Unbound</title>
+    <meta
+      name="description"
+      content="Skyrim Unbound is a one-shard Skyrim roleplay server focused on persistent characters, staff-reviewed entry, and long-form text storytelling."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./app.css?v=20260425-6" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <div class="site-atmosphere" aria-hidden="true">
+        <span class="site-atmosphere__smoke site-atmosphere__smoke--one"></span>
+        <span class="site-atmosphere__smoke site-atmosphere__smoke--two"></span>
+        <span class="site-atmosphere__smoke site-atmosphere__smoke--three"></span>
+        <span class="site-atmosphere__smoke site-atmosphere__smoke--four"></span>
+      </div>
+      <header class="topbar" id="top">
+        <div class="topbar__inner">
+          <nav class="nav" aria-label="Primary">
+            <a href="#top">Home</a>
+            <a href="#join">How to Join</a>
+            <a href="#world">Why Us</a>
+            <a href="#community">Community</a>
+            <a href="#media">Media</a>
+            <a href="#calendar" data-calendar-open>Events</a>
+            <a href="#contact">Contact</a>
+          </nav>
+          <div class="topbar__actions">
+            <div class="language-menu" id="topbarLanguageMenu">
+              <button
+                class="button button--ghost language-menu__trigger"
+                id="topbarLanguageButton"
+                type="button"
+                aria-expanded="false"
+                aria-haspopup="listbox"
+                aria-label="Select language"
+              >
+                <span class="language-menu__flag" id="topbarLanguageFlag" aria-hidden="true"></span>
+                <span class="language-menu__value" id="topbarLanguageCode">EN</span>
+                <span class="account-menu__caret language-menu__caret" aria-hidden="true"></span>
+              </button>
+              <div class="language-menu__dropdown hidden" id="topbarLanguageDropdown" role="listbox" aria-label="Language selector"></div>
+            </div>
+            <div class="account-menu hidden" id="topbarAccountMenu">
+              <button
+                class="button button--ghost account-menu__trigger"
+                id="topbarAccountButton"
+                type="button"
+                aria-expanded="false"
+                aria-haspopup="true"
+              >
+                <span id="topbarAccountName">Account</span>
+                <span class="account-menu__caret" aria-hidden="true"></span>
+              </button>
+              <div class="account-menu__dropdown hidden" id="topbarAccountDropdown" role="menu" aria-label="Account menu">
+                <button class="account-menu__item" id="topbarLogoutButton" type="button" role="menuitem">Log Out</button>
+              </div>
+            </div>
+            <a class="button button--ghost hidden" id="topbarOpenUcpButton" href="/ucp/">Open UCP</a>
+            <button class="button button--ghost" id="topbarSessionButton" type="button">Sign In</button>
+            <a class="button button--install" href="/launcher/">
+              <span>Download and install</span>
+              <span class="button__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 3a1 1 0 0 1 1 1v8.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 4a1 1 0 0 1-1.4 0l-4-4a1 1 0 1 1 1.4-1.41L11 12.59V4a1 1 0 0 1 1-1Zm-7 13a1 1 0 0 1 1 1v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1a1 1 0 1 1 2 0v1a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-1a1 1 0 0 1 1-1Z" fill="currentColor"/>
+                </svg>
+              </span>
+            </a>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="hero__backdrop"></div>
+          <div class="hero__veil"></div>
+          <div class="hero__inner">
+            <div class="hero__lead-grid">
+              <div class="hero__lead-copy">
+                <h1 class="hero__title">
+                  Skyrim Unbound
+                </h1>
+                <p class="hero__lede">
+                  A one-shard Skyrim roleplay experience built with colder steel, darker roads, real
+                  consequences, faction pressure, and heavy text immersion from the first whitelist step
+                  to the last line of dialogue.
+                </p>
+                <div class="hero__actions">
+                  <a class="button button--primary" data-ucp-link="register" href="/ucp/?auth=register">Create Account</a>
+                  <a class="button button--ghost" href="https://discord.gg/Bf7drbpWKK">
+                    <span class="button__icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M19.54 5.34A16.9 16.9 0 0 0 15.6 4l-.19.39a11.5 11.5 0 0 1 3.48 1.33 13.38 13.38 0 0 0-6.89-1.76 13.38 13.38 0 0 0-6.89 1.76 11.5 11.5 0 0 1 3.48-1.33L8.4 4a16.9 16.9 0 0 0-3.94 1.34C1.97 9.05 1.3 12.65 1.6 16.2a16.97 16.97 0 0 0 4.84 2.44l1.18-1.94a10.9 10.9 0 0 1-1.87-.9l.45-.35a12.4 12.4 0 0 0 11.6 0l.45.35a10.9 10.9 0 0 1-1.87.9l1.18 1.94a16.97 16.97 0 0 0 4.84-2.44c.36-4.11-.61-7.68-2.86-10.86ZM9.75 14.1c-.96 0-1.75-.88-1.75-1.96s.77-1.96 1.75-1.96c1 0 1.77.88 1.75 1.96 0 1.08-.77 1.96-1.75 1.96Zm4.5 0c-.96 0-1.75-.88-1.75-1.96s.77-1.96 1.75-1.96c1 0 1.77.88 1.75 1.96 0 1.08-.77 1.96-1.75 1.96Z" fill="currentColor"/>
+                      </svg>
+                    </span>
+                    Join Discord
+                  </a>
+                </div>
+
+                <aside class="hero__calendar-teaser" id="calendar">
+                  <span class="hero__calendar-eyebrow">Community Events</span>
+                  <p class="hero__calendar-intro">
+                    A quieter ledger for faction meetings, conflict nights, court sessions, and server events whenever you want to check what is coming.
+                  </p>
+                  <button class="hero__calendar-alert" id="heroCalendarAlert" type="button" hidden>
+                    <span class="hero__calendar-alert-beacon" aria-hidden="true">
+                      <span class="hero__calendar-alert-beacon-core"></span>
+                    </span>
+                    <span class="hero__calendar-alert-body">
+                      <span class="hero__calendar-alert-kicker">Within the next 24 hours</span>
+                      <strong class="hero__calendar-alert-title" id="heroCalendarAlertTitle">Upcoming event</strong>
+                      <span class="hero__calendar-alert-meta">
+                        <span class="hero__calendar-alert-pill" id="heroCalendarAlertCountdown">Starts soon</span>
+                        <span class="hero__calendar-alert-pill" id="heroCalendarAlertTime">Time</span>
+                        <span class="hero__calendar-alert-pill" id="heroCalendarAlertExtra" hidden></span>
+                      </span>
+                      <span class="hero__calendar-alert-copy" id="heroCalendarAlertCopy">
+                        Open the event calendar to read the full details and mark interest.
+                      </span>
+                    </span>
+                    <span class="hero__calendar-alert-cta">Open Now</span>
+                  </button>
+                  <div class="hero__calendar-actions">
+                    <button class="button button--ghost" type="button" data-calendar-open>Open Event Calendar</button>
+                  </div>
+                </aside>
+              </div>
+              <aside class="hero__lead-media" aria-label="Featured video for the upcoming Skyrim Unbound trailer">
+                <div class="hero__trailer-frame">
+                  <div class="hero__trailer-video">
+                    <iframe
+                      src="https://www.youtube-nocookie.com/embed/rFv_CDJ-XBo?rel=0"
+                      title="Featured trailer video"
+                      loading="lazy"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerpolicy="strict-origin-when-cross-origin"
+                      allowfullscreen
+                    ></iframe>
+                  </div>
+                  <div class="hero__trailer-meta">
+                    <strong>Skyrim Unbound Coming Soon</strong>
+                    <span>Current preview selection</span>
+                  </div>
+                </div>
+              </aside>
+            </div>
+            <div class="hero__world-preview" id="world">
+              <span class="hero__world-fog hero__world-fog--far" aria-hidden="true"></span>
+              <span class="hero__world-fog hero__world-fog--mid" aria-hidden="true"></span>
+              <span class="hero__world-fog hero__world-fog--near" aria-hidden="true"></span>
+              <div class="hero__world-preview-content">
+                <div class="section-heading">
+                  <h2>Experience the Ultimate Strict Roleplay Experience</h2>
+                </div>
+                <div class="feature-grid">
+                  <article class="feature">
+                    <h3>Focused lore development</h3>
+                    <p>Storylines, events, and regional tension stay rooted in the setting so the world grows with intention instead of noise.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Player-run world</h3>
+                    <p>Economy, player housing, and businesses are meant to be owned, defended, and shaped by the people living in the shard.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Official and unofficial factions</h3>
+                    <p>Recognized powers and rising groups can build perks, identity, and influence through the way they organize and act.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Territories and politics</h3>
+                    <p>Faction territory and politically driven conflict matter on both the smaller and larger scale, so local choices can echo outward.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Real consequences</h3>
+                    <p>Your character's actions can shape reputation, access, trust, and the way later scenes answer back to what you have done.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Room for every playstyle</h3>
+                    <p>Even if the world feels colder and harsher, there is still room for quieter, lawful, social, and slower-burn characters to matter.</p>
+                  </article>
+                </div>
+                <div class="feature-grid">
+                  <article class="feature">
+                    <h3>Regular Updates</h3>
+                    <p>Constant improvements and new features to enhance your experience.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Strict Roleplay</h3>
+                    <p>Heavy emphasis on realistic character development and immersive storytelling.</p>
+                  </article>
+                  <article class="feature">
+                    <h3>Professional Staff</h3>
+                    <p>Experienced team dedicated to maintaining quality roleplay standards.</p>
+                  </article>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section section--join" id="join">
+          <div class="section__inner">
+            <div class="section-heading">
+              <h2>How to Join</h2>
+              <p>Everything happens in one clean flow: create your account, pass whitelist, install, and enter the world.</p>
+            </div>
+            <div class="steps">
+              <article class="step-card">
+                <span class="step-card__number">1</span>
+                <h3>Create Your UCP</h3>
+                <p>Make your account, secure it, and set up the identity you will use across your characters and support history.</p>
+                <a class="button button--secondary" data-ucp-link="register" href="/ucp/?auth=register">Create Account</a>
+              </article>
+              <article class="step-card">
+                <span class="step-card__number">2</span>
+                <h3>Submit Whitelist</h3>
+                <p>Answer the roleplay application, complete your character background, and get reviewed by Supporters and Admins.</p>
+                <a class="button button--secondary" data-ucp-link="register" href="/ucp/?auth=register">Start Application</a>
+              </article>
+              <article class="step-card">
+                <span class="step-card__number">3</span>
+                <h3>Install The Client</h3>
+                <p>Get the local launcher package and connect through the supported client setup for this shard.</p>
+                <a class="button button--secondary" href="/launcher/">Open Launcher</a>
+              </article>
+              <article class="step-card">
+                <span class="step-card__number">4</span>
+                <h3>Enter The World</h3>
+                <p>Choose your character slot, step into the world, and build a story that stays persistent over time.</p>
+                <a class="button button--secondary" data-ucp-link="login" href="/ucp/?auth=login">Manage Characters</a>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section section--community" id="community">
+          <div class="section__inner">
+            <div class="section-heading">
+              <h2 class="community-showcase__title">
+                Join Our <span>Community</span>
+              </h2>
+              <p class="community-showcase__intro">
+                Connect with millions of roleplayers worldwide. Share stories, get help, and stay updated.
+              </p>
+            </div>
+            <div class="community-showcase">
+              <article class="community-showcase__card community-showcase__card--discord" data-community-card="discord">
+                <div class="community-showcase__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 3.5c4.97 0 9 3.71 9 8.28 0 4.56-4.03 8.27-9 8.27-.73 0-1.45-.08-2.15-.24L5.9 21l1.07-3.14C5.13 16.34 3 14.2 3 11.78 3 7.21 7.03 3.5 12 3.5Zm0 2.42c-3.59 0-6.5 2.63-6.5 5.86 0 1.82.94 3.45 2.41 4.52l.52.38-.44 1.29 1.7-.53.39.1c.63.16 1.27.24 1.92.24 3.59 0 6.5-2.63 6.5-5.86 0-3.23-2.91-5.86-6.5-5.86Z" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="community-showcase__body">
+                  <h3>Discord Community <span aria-hidden="true">&#8599;</span></h3>
+                  <p><strong data-discord-member-copy>Live</strong> members on our Discord server. Real-time support, events, announcements, and more.</p>
+                </div>
+                <a class="community-showcase__cta" href="https://discord.gg/Bf7drbpWKK">
+                  <span class="community-showcase__cta-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M12 3.5c4.97 0 9 3.71 9 8.28 0 4.56-4.03 8.27-9 8.27-.73 0-1.45-.08-2.15-.24L5.9 21l1.07-3.14C5.13 16.34 3 14.2 3 11.78 3 7.21 7.03 3.5 12 3.5Zm0 2.42c-3.59 0-6.5 2.63-6.5 5.86 0 1.82.94 3.45 2.41 4.52l.52.38-.44 1.29 1.7-.53.39.1c.63.16 1.27.24 1.92.24 3.59 0 6.5-2.63 6.5-5.86 0-3.23-2.91-5.86-6.5-5.86Z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <span>Join Discord Server</span>
+                  <span class="community-showcase__cta-arrow" aria-hidden="true">&rarr;</span>
+                </a>
+              </article>
+
+              <article class="community-showcase__card community-showcase__card--forum" data-community-card="forum">
+                <div class="community-showcase__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M8.5 5.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm7 1a3 3 0 1 1 0 6 3 3 0 0 1 0-6ZM8.5 14.5c2.62 0 4.75 2.13 4.75 4.75v1.25h-2.5v-1.25c0-1.24-1.01-2.25-2.25-2.25s-2.25 1.01-2.25 2.25v1.25h-2.5v-1.25c0-2.62 2.13-4.75 4.75-4.75Zm7-1c2.35 0 4.25 1.9 4.25 4.25v2.75h-2.5v-2.75c0-.97-.78-1.75-1.75-1.75-.42 0-.83.15-1.14.42l-1.77-1.76a4.22 4.22 0 0 1 2.91-1.16Z" fill="currentColor"/>
+                  </svg>
+                </div>
+                <div class="community-showcase__body">
+                  <h3>Official Forum <span aria-hidden="true">&#10022;</span></h3>
+                  <p>The official forum is being prepared. Discord is the live community hub for now.</p>
+                </div>
+                <a class="community-showcase__cta community-showcase__cta--disabled" aria-disabled="true" tabindex="-1" href="#community">
+                  <span class="community-showcase__cta-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M8.5 5.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Zm7 1a3 3 0 1 1 0 6 3 3 0 0 1 0-6ZM8.5 14.5c2.62 0 4.75 2.13 4.75 4.75v1.25h-2.5v-1.25c0-1.24-1.01-2.25-2.25-2.25s-2.25 1.01-2.25 2.25v1.25h-2.5v-1.25c0-2.62 2.13-4.75 4.75-4.75Zm7-1c2.35 0 4.25 1.9 4.25 4.25v2.75h-2.5v-2.75c0-.97-.78-1.75-1.75-1.75-.42 0-.83.15-1.14.42l-1.77-1.76a4.22 4.22 0 0 1 2.91-1.16Z" fill="currentColor"/>
+                    </svg>
+                  </span>
+                  <span>Coming Soon</span>
+                  <span class="community-showcase__cta-arrow" aria-hidden="true">&rarr;</span>
+                </a>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section section--media" id="media">
+          <div class="section__inner">
+            <div class="section-heading">
+              <h2>Community Showcase</h2>
+              <p>Moments captured from inside the shard, rotated into view as the world keeps moving.</p>
+            </div>
+            <div class="media-slider media-slider--showcase" id="mediaSlider" aria-label="Community screenshot showcase">
+              <div class="media-slider__viewport">
+                <div class="media-slider__track" id="mediaSliderTrack">
+                  <article class="media-tile media-tile--left media-slide" aria-label="Community screenshot one"></article>
+                  <article class="media-tile media-tile--center media-slide" aria-label="Community screenshot two"></article>
+                  <article class="media-tile media-tile--right media-slide" aria-label="Community screenshot three"></article>
+                </div>
+              </div>
+              <div class="media-slider__dots" aria-label="Gallery navigation">
+                <button class="media-slider__dot is-active" type="button" data-media-dot="0" aria-label="Show first showcase image" aria-pressed="true"></button>
+                <button class="media-slider__dot" type="button" data-media-dot="1" aria-label="Show second showcase image" aria-pressed="false"></button>
+                <button class="media-slider__dot" type="button" data-media-dot="2" aria-label="Show third showcase image" aria-pressed="false"></button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section section--contact" id="contact">
+          <div class="section__inner">
+            <div class="contact-band">
+              <div class="contact-band__copy">
+                <span class="section-heading__eyebrow">Creator Program</span>
+                <h2>Become an official server content creator</h2>
+                <p>We are looking for creators who want to spotlight events, characters, faction stories, and the slower-burn moments that make Skyrim Unbound feel alive. If you want to create videos, screenshots, shorts, or streams with official server backing, reach out and show us what you do.</p>
+              </div>
+              <div class="contact-band__actions">
+                <button class="button button--primary" id="creatorContactOpen" type="button" data-contact-open>Contact Us</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section section--youtube-callout" aria-label="YouTube callout">
+          <div class="section__inner">
+            <div class="youtube-callout">
+              <p class="youtube-callout__text">
+                Subscribe to our YouTube channel for weekly content, server footage, and community updates.
+              </p>
+              <a class="button button--youtube" href="https://youtu.be/8ccDfIxCLlc">
+                <span class="button__icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M21.58 7.19a2.96 2.96 0 0 0-2.08-2.1C17.7 4.6 12 4.6 12 4.6s-5.7 0-7.5.49a2.96 2.96 0 0 0-2.08 2.1A30.82 30.82 0 0 0 2 12a30.82 30.82 0 0 0 .42 4.81 2.96 2.96 0 0 0 2.08 2.1c1.8.49 7.5.49 7.5.49s5.7 0 7.5-.49a2.96 2.96 0 0 0 2.08-2.1A30.82 30.82 0 0 0 22 12a30.82 30.82 0 0 0-.42-4.81ZM10 15.47V8.53L16 12Z" fill="currentColor"/>
+                  </svg>
+                </span>
+                Subscribe on YouTube
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <div class="footer__inner">
+          <div class="footer__legal">
+            <h3>Rights & Disclaimer</h3>
+            <p>
+              Skyrim Unbound is an independent roleplay project for The Elder Scrolls V: Skyrim and is not
+              affiliated with or endorsed by Bethesda Softworks, Bethesda Game Studios, ZeniMax Media,
+              Microsoft, or other rights holders. All game names, marks, and related assets belong to
+              their respective owners.
+            </p>
+          </div>
+          <div class="footer__nav-group">
+            <div class="footer__column">
+              <h3>Quick Links</h3>
+              <div class="footer__links">
+                <a href="#top">Home</a>
+                <a href="#join">How to Join</a>
+                <a href="#world">Why Us</a>
+                <a href="#community">Community</a>
+                <a href="#calendar" data-calendar-open>Events</a>
+                <a data-ucp-link="login" href="/ucp/?auth=login">UCP</a>
+                <a href="/launcher/">Launcher</a>
+              </div>
+            </div>
+            <div class="footer__column footer__column--powered">
+              <h3>Powered by SkyMP</h3>
+              <p class="footer__note">
+                Built on
+                <a href="https://skymp.net/" target="_blank" rel="noreferrer">SkyMP</a>
+                to support persistent multiplayer Skyrim roleplay.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="footer__meta">
+          <div class="footer__meta-inner">
+            <p>Skyrim Unbound. All rights reserved to their respective owners.</p>
+            <div class="footer__meta-links">
+              <a href="terms/">Terms of Use</a>
+              <a href="privacy/">Privacy</a>
+              <a href="payments/">Payments</a>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+      <div class="cookie-bar" id="cookie-bar" role="dialog" aria-live="polite" aria-label="Cookie notice">
+        <p>
+          This site can remember your consent and visual preferences between visits. If browser storage is blocked, it will fall back gracefully.
+        </p>
+        <div class="cookie-bar__actions">
+          <button class="button button--ghost" type="button" data-cookie-dismiss>Close</button>
+          <button class="button button--primary" type="button" data-cookie-dismiss>Allow</button>
+        </div>
+      </div>
+
+      <div class="calendar-modal" id="calendarModal" hidden>
+        <div class="calendar-modal__backdrop" data-calendar-close></div>
+        <div class="calendar-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="calendarDetailTitle">
+          <button class="calendar-modal__close" id="calendarModalClose" type="button" aria-label="Close event details">
+            &times;
+          </button>
+          <div class="calendar-panel">
+            <div class="calendar-panel__story">
+              <div class="calendar-modal__content">
+                <div class="calendar-modal__eyebrow">Community Events</div>
+                <h3 class="calendar-modal__title calendar-modal__title--context" id="calendarDetailTitle">Open the road ledger</h3>
+                <p class="calendar-panel__lede" id="calendarPanelLede" hidden></p>
+                <div class="calendar-modal__meta" id="calendarModalMeta"></div>
+                <div class="calendar-detail-events" id="calendarDetailEventList" hidden></div>
+                <p class="calendar-modal__description" id="calendarModalDescription">
+                  The calendar sits off to the side until you decide to step into it. When a market, war council, raid, or community night matters to you, open the entry and follow the details from there.
+                </p>
+                <div class="calendar-ticket" id="calendarTicketPanel" hidden>
+                  <div class="calendar-ticket__intro">
+                    <div class="calendar-ticket__eyebrow">Player Requests</div>
+                    <h4 id="calendarTicketTitle">Request an event</h4>
+                    <p class="calendar-ticket__copy" id="calendarTicketCopy">
+                      Open a ticket here to request a community event. If you also need direct admin or organiser help, mark that in the form below.
+                    </p>
+                  </div>
+                  <div class="calendar-ticket__message" id="calendarTicketMessage" aria-live="polite"></div>
+                  <div class="calendar-ticket__action-row" id="calendarTicketActionRow">
+                    <button class="button button--primary" id="calendarTicketRequestButton" type="button">Request Event</button>
+                  </div>
+                  <form class="calendar-ticket__form" id="calendarTicketForm" hidden>
+                    <h4 class="calendar-ticket__form-title" id="calendarTicketFormTitle">Open event request</h4>
+                    <label class="calendar-ticket__field">
+                      <span>Ticket Type</span>
+                      <input id="calendarTicketCategory" name="category" type="hidden" value="EVENT_REQUEST" />
+                      <div class="calendar-ticket__static-value">Event Request</div>
+                    </label>
+                    <label class="calendar-ticket__field">
+                      <span>Do you need direct admin / organiser support with this request?</span>
+                      <div class="calendar-ticket__choice-row" role="radiogroup" aria-label="Do you need direct admin or organiser support with this request?">
+                        <label class="calendar-ticket__choice">
+                          <input type="radio" name="needsAdminSupport" value="no" checked />
+                          <span>No</span>
+                        </label>
+                        <label class="calendar-ticket__choice">
+                          <input type="radio" name="needsAdminSupport" value="yes" />
+                          <span>Yes</span>
+                        </label>
+                      </div>
+                    </label>
+                    <label class="calendar-ticket__field">
+                      <span>Subject</span>
+                      <input id="calendarTicketSubject" name="subject" type="text" maxlength="140" required />
+                    </label>
+                    <label class="calendar-ticket__field">
+                      <span>Details</span>
+                      <textarea
+                        id="calendarTicketBody"
+                        name="message"
+                        rows="6"
+                        placeholder="Tell staff what you need, which date you are aiming for, and any faction or character context that matters."
+                        required
+                      ></textarea>
+                    </label>
+                    <p class="calendar-ticket__note" id="calendarTicketFormNote">
+                      This opens a real ticket in the UCP so admins and event organisers can follow up directly.
+                    </p>
+                    <div class="calendar-ticket__form-actions">
+                      <button class="button button--primary" id="calendarTicketSubmit" type="submit">Open Ticket</button>
+                      <button class="button button--ghost" id="calendarTicketCancel" type="button">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+                <div class="calendar-modal__actions">
+                  <div class="calendar-modal__interest" id="calendarModalInterestCount" hidden></div>
+                  <button class="button button--primary" id="calendarInterestButton" type="button" hidden>Mark Interested</button>
+                </div>
+              </div>
+            </div>
+            <div class="calendar-panel__main">
+              <div class="calendar-shell">
+                <div class="calendar-toolbar">
+                  <button class="button button--ghost" id="calendarPrevButton" type="button">Previous</button>
+                  <div class="calendar-toolbar__title">
+                    <strong id="calendarMonthLabel">Loading events...</strong>
+                    <div class="calendar-time-toggle" role="radiogroup" aria-label="Calendar time display">
+                      <label class="calendar-time-toggle__option" data-calendar-time-mode-option="server">
+                        <input class="calendar-time-toggle__input" id="calendarTimeModeServer" name="calendarTimeMode" type="radio" value="server" />
+                        <span class="calendar-time-toggle__check" aria-hidden="true"></span>
+                        <span class="calendar-time-toggle__copy">Server Time</span>
+                      </label>
+                      <label class="calendar-time-toggle__option" data-calendar-time-mode-option="local">
+                        <input class="calendar-time-toggle__input" id="calendarTimeModeLocal" name="calendarTimeMode" type="radio" value="local" checked />
+                        <span class="calendar-time-toggle__check" aria-hidden="true"></span>
+                        <span class="calendar-time-toggle__copy">Local Time</span>
+                      </label>
+                    </div>
+                    <div class="calendar-time-toggle__meta" id="calendarTimeModeMeta" aria-live="polite"></div>
+                  </div>
+                  <button class="button button--ghost" id="calendarNextButton" type="button">Next</button>
+                </div>
+
+                <div class="calendar-message" id="calendarMessage" aria-live="polite"></div>
+
+                <div class="calendar-grid-shell">
+                  <div class="calendar-grid" id="calendarGrid" aria-label="Community event calendar"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="contact-modal" id="creatorContactModal" hidden>
+        <div class="contact-modal__backdrop" data-contact-close></div>
+        <div class="contact-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="creatorContactTitle">
+          <button class="contact-modal__close" id="creatorContactClose" type="button" aria-label="Close contact form">
+            &times;
+          </button>
+          <div class="contact-modal__header">
+            <div class="contact-modal__title-row">
+              <span class="contact-modal__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M4 6.5h16a1.5 1.5 0 0 1 1.5 1.5v8A3.5 3.5 0 0 1 18 19.5H6A3.5 3.5 0 0 1 2.5 16V8A1.5 1.5 0 0 1 4 6.5Zm-.1 2.18v7.32A2.1 2.1 0 0 0 6 18.1h12a2.1 2.1 0 0 0 2.1-2.1V8.68l-7.18 5.57a1.5 1.5 0 0 1-1.84 0L3.9 8.68Zm1.58-.78 6.52 5.06 6.52-5.06H5.48Z" fill="currentColor"/>
+                </svg>
+              </span>
+              <h3 id="creatorContactTitle">Contact Us</h3>
+            </div>
+            <p>Send us a message and we'll get back to you as soon as possible.</p>
+          </div>
+
+          <div class="contact-modal__message" id="creatorContactMessage" aria-live="polite"></div>
+
+          <form class="contact-modal__form" id="creatorContactForm">
+            <label class="contact-modal__field">
+              <span>Name <span class="contact-modal__required" aria-hidden="true">*</span></span>
+              <input name="name" type="text" autocomplete="name" placeholder="Your name" required />
+            </label>
+            <label class="contact-modal__field">
+              <span>Email <span class="contact-modal__required" aria-hidden="true">*</span></span>
+              <input name="email" type="email" autocomplete="email" placeholder="your.email@example.com" required />
+            </label>
+            <label class="contact-modal__field">
+              <span>Subject <span class="contact-modal__required" aria-hidden="true">*</span></span>
+              <input name="subject" type="text" placeholder="What is this about?" required />
+            </label>
+            <label class="contact-modal__field">
+              <span>Message <span class="contact-modal__required" aria-hidden="true">*</span></span>
+              <textarea name="message" rows="6" placeholder="Your message..." required></textarea>
+            </label>
+
+            <div class="contact-modal__captcha" id="creatorContactCaptchaBlock">
+              <div class="contact-modal__captcha-shell">
+                <div class="contact-modal__captcha-widget" id="creatorContactCaptchaMount" aria-live="polite"></div>
+              </div>
+              <p class="contact-modal__captcha-note" id="creatorContactCaptchaNote">
+                Loading verification...
+              </p>
+            </div>
+
+            <button class="button button--primary contact-modal__submit" id="creatorContactSubmit" type="submit">
+              <span class="button__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24">
+                  <path d="M20.7 4.3a1 1 0 0 0-1.03-.22L4.88 9.56a1 1 0 0 0 .08 1.91l5.7 1.74 1.74 5.7a1 1 0 0 0 1.9.08l5.49-14.8a1 1 0 0 0-.08-.89ZM12.8 17l-1.14-3.73a1 1 0 0 0-.66-.66L7.27 11.5l9.63-3.57L12.8 17Z" fill="currentColor"/>
+                </svg>
+              </span>
+              Send Message
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <div class="auth-modal" id="websiteAuthModal" hidden>
+        <div class="auth-modal__backdrop" data-auth-close></div>
+        <div class="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="websiteAuthTitle">
+          <button class="auth-modal__close" id="websiteAuthClose" type="button" aria-label="Close sign in">
+            &times;
+          </button>
+          <div class="auth-modal__header">
+            <div class="auth-modal__eyebrow">Account Access</div>
+            <h3 id="websiteAuthTitle">Sign in without leaving the page</h3>
+            <p>
+              Use your UCP account here so event interest and account access stay connected to the same profile.
+            </p>
+          </div>
+
+          <div class="auth-modal__message" id="websiteAuthMessage" aria-live="polite"></div>
+
+          <form class="auth-modal__form" id="websiteLoginForm">
+            <label class="auth-modal__field">
+              <span>Username or email</span>
+              <input name="login" type="text" autocomplete="username" required />
+            </label>
+            <label class="auth-modal__field">
+              <span>Password</span>
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <div class="auth-modal__actions">
+              <button class="button button--primary" type="submit">Sign In</button>
+              <a class="button button--ghost" data-ucp-link="register" href="/ucp/?auth=register">Create Account</a>
+            </div>
+          </form>
+
+          <form class="auth-modal__form hidden" id="websiteLoginChallengeForm">
+            <p class="auth-modal__challenge-copy" id="websiteLoginChallengeCopy">
+              Finish the remaining verification steps for this login.
+            </p>
+            <label class="auth-modal__field hidden" id="websiteLoginChallengeEmailField">
+              <span>Email OTP</span>
+              <input name="emailOtp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit email code" />
+            </label>
+            <label class="auth-modal__field hidden" id="websiteLoginChallengeTotpField">
+              <span>Authenticator Code</span>
+              <input name="totpCode" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="6-digit authenticator code" />
+            </label>
+            <div class="auth-modal__actions">
+              <button class="button button--primary" type="submit">Verify And Continue</button>
+              <button class="button button--ghost" id="websiteLoginChallengeCancel" type="button">Cancel</button>
+            </div>
+          </form>
+
+          <p class="auth-modal__footer">
+            Need password recovery or full account setup? Continue in the
+            <a data-ucp-link="login" href="/ucp/?auth=login">UCP account center</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script src="./i18n.js?v=20260425-3"></script>
+    <script src="./app.js?v=20260425-3"></script>
+  </body>
+</html>

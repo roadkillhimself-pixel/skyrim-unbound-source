@@ -1,0 +1,7 @@
+{
+  "master": "https://gateway.skymp.net",
+  "server-master-key": "replace-with-your-unique-master-key",
+  "server-ip": "replace-with-your-public-ip-or-domain",
+  "server-port": 7777,
+  "language": "en"
+}

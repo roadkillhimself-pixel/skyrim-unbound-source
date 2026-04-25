@@ -37,6 +37,14 @@ Napi::Value BrowserApiNirnLab::SetVisible(const Napi::CallbackInfo& info)
 {
   wantedIsVisible = NapiHelper::ExtractBoolean(info[0], "isVisible");
   logger::info("SetVisible {}", wantedIsVisible);
+  if (wantedIsVisible && api == nullptr) {
+    NL::UI::SKSELoader::GetUIPlatformAPIWithVersionCheck(
+      [](NL::UI::IUIPlatformAPI* receivedApi) {
+        auto& self = GetInstance();
+        self.api = receivedApi;
+        self.ApiInit();
+      });
+  }
   UpdateVisible();
   return info.Env().Undefined();
 }
@@ -68,6 +76,14 @@ Napi::Value BrowserApiNirnLab::LoadUrl(const Napi::CallbackInfo& info)
 {
   wantedUrl = NapiHelper::ExtractString(info[0], "url");
   logger::info("LoadUrl {}", wantedUrl);
+  if (api == nullptr) {
+    NL::UI::SKSELoader::GetUIPlatformAPIWithVersionCheck(
+      [](NL::UI::IUIPlatformAPI* receivedApi) {
+        auto& self = GetInstance();
+        self.api = receivedApi;
+        self.ApiInit();
+      });
+  }
   UpdateUrl();
   return Napi::Boolean::New(info.Env(), true);
 }

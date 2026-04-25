@@ -2,11 +2,16 @@ import { System, Log, Content, SystemContext } from "./system";
 import { Settings } from "../settings";
 import * as fetchRetry from "fetch-retry";
 import { loginsCounter, loginErrorsCounter } from "./metricsSystem";
+import { resolveUcpPlaySession } from "../ucp";
 
+const INVALID_USER_ID = 65535;
 const loginFailedNotInTheDiscordServer = JSON.stringify({ customPacketType: "loginFailedNotInTheDiscordServer" });
 const loginFailedBanned = JSON.stringify({ customPacketType: "loginFailedBanned" });
 const loginFailedIpMismatch = JSON.stringify({ customPacketType: "loginFailedIpMismatch" });
 const loginFailedSessionNotFound = JSON.stringify({ customPacketType: "loginFailedSessionNotFound" });
+const gracefulDisconnectCustomPacketType = "gracefulDisconnect";
+const runtimeModIndex = 255;
+const chatAnnouncementColor = "#f8f2df";
 
 type Mp = any; // TODO
 
@@ -78,7 +83,35 @@ export class Login implements System {
     );
   }
 
-  disconnect(userId: number): void {
+  connect(userId: number): void {
+    this.gracefulDisconnectUserIds.delete(userId);
+    this.clearAccountSessionForUser(userId);
+  }
+
+  disconnect(userId: number, ctx: SystemContext): void {
+    this.clearAccountSessionForUser(userId);
+
+    const mp = ctx.svr as unknown as Mp;
+    const actorId = mp.getUserActor(userId);
+    if (!actorId) {
+      this.gracefulDisconnectUserIds.delete(userId);
+      return;
+    }
+
+    const actorName = this.getActorName(mp, actorId);
+    if (!actorName) {
+      this.gracefulDisconnectUserIds.delete(userId);
+      return;
+    }
+
+    const gracefulDisconnect = this.gracefulDisconnectUserIds.has(userId);
+    this.gracefulDisconnectUserIds.delete(userId);
+
+    const announcement = gracefulDisconnect
+      ? `(( ${actorName} has disconnected. ))`
+      : `(( ${actorName} has timed out. ))`;
+
+    this.sendDisconnectAnnouncement(mp, userId, announcement);
   }
 
   customPacket(
@@ -87,6 +120,12 @@ export class Login implements System {
     content: Content,
     ctx: SystemContext,
   ): void {
+    if (type === gracefulDisconnectCustomPacketType) {
+      this.gracefulDisconnectUserIds.add(userId);
+      this.log(`${userId} requested graceful disconnect`);
+      return;
+    }
+
     if (type !== "loginWithSkympIo") {
       return;
     }
@@ -100,6 +139,17 @@ export class Login implements System {
     if (this.offlineMode === true && gameData && gameData.session) {
       this.log("The server is in offline mode, the client is NOT");
     } else if (this.offlineMode === false && gameData && gameData.session) {
+      const localPlaySession = resolveUcpPlaySession(this.settingsObject, String(gameData.session), this.masterKey);
+      if (localPlaySession) {
+        if (!this.registerAccountSession(userId, `ucp-account:${localPlaySession.accountId}`, ctx)) {
+          return;
+        }
+        this.emit(ctx, "spawnAllowed", userId, localPlaySession.profileId, [], undefined);
+        loginsCounter.inc();
+        this.log(`${userId} logged as ${localPlaySession.profileId} via UCP character ${localPlaySession.characterId}`);
+        return;
+      }
+
       (async () => {
         this.emit(ctx, "userAssignSession", userId, gameData.session);
 
@@ -215,6 +265,10 @@ export class Login implements System {
           });
         }
 
+        if (!this.registerAccountSession(userId, `master-profile:${profile.id}`, ctx)) {
+          return;
+        }
+
         this.emit(ctx, "spawnAllowed", userId, profile.id, roles, profile.discordId);
         loginsCounter.inc();
         this.log("Logged as " + profile.id);
@@ -225,6 +279,9 @@ export class Login implements System {
         });
     } else if (this.offlineMode === true && gameData && typeof gameData.profileId === "number") {
       const profileId = gameData.profileId;
+      if (!this.registerAccountSession(userId, `offline-profile:${profileId}`, ctx)) {
+        return;
+      }
       this.emit(ctx, "spawnAllowed", userId, profileId, [], undefined);
       loginsCounter.inc();
       this.log(userId + " logged as " + profileId);
@@ -262,10 +319,148 @@ export class Login implements System {
     });
   }
 
+  private getActorName(mp: Mp, actorId: number): string {
+    try {
+      const name = mp.getActorName(actorId);
+      if (typeof name === "string") {
+        const trimmed = name.trim();
+        if (trimmed) {
+          return trimmed;
+        }
+      }
+    } catch (err) {
+      console.error("Failed to get actor name for disconnect announcement:", err);
+    }
+
+    return "";
+  }
+
+  private sendDisconnectAnnouncement(mp: Mp, disconnectedUserId: number, text: string): void {
+    const payload = JSON.stringify({
+      seq: ++this.disconnectAnnouncementSeq,
+      text,
+      color: chatAnnouncementColor,
+      createdAt: new Date().toISOString(),
+    });
+
+    const seenUserIds = new Set<number>();
+    const forms = this.getRuntimeForms(mp);
+
+    for (const formId of forms) {
+      let connectedUserId: number;
+      try {
+        connectedUserId = mp.getUserByActor(formId);
+      } catch (err) {
+        console.error("Failed to resolve disconnect announcement recipient:", err);
+        continue;
+      }
+
+      if (!Number.isInteger(connectedUserId) || connectedUserId === INVALID_USER_ID) {
+        continue;
+      }
+
+      if (connectedUserId === disconnectedUserId || seenUserIds.has(connectedUserId)) {
+        continue;
+      }
+
+      seenUserIds.add(connectedUserId);
+
+      try {
+        mp.set(formId, "ff_chatMsg", payload);
+      } catch (err) {
+        console.error("Failed to send disconnect announcement:", err);
+        continue;
+      }
+
+      setTimeout(() => {
+        try {
+          if (mp.get(formId, "ff_chatMsg") !== payload) {
+            return;
+          }
+          mp.set(formId, "ff_chatMsg", "");
+        } catch {
+          // Best-effort cleanup only.
+        }
+      }, 2000);
+    }
+  }
+
+  private getRuntimeForms(mp: Mp): number[] {
+    try {
+      const forms = mp.getAllForms(runtimeModIndex);
+      return Array.isArray(forms) ? forms : [];
+    } catch (err) {
+      console.error("Failed to enumerate runtime forms for disconnect announcement:", err);
+      return [];
+    }
+  }
+
   private emit(ctx: SystemContext, eventName: string, ...args: unknown[]) {
     (ctx.gm as any).emit(eventName, ...args);
   }
 
+  private registerAccountSession(userId: number, accountKey: string, ctx: SystemContext): boolean {
+    this.clearAccountSessionForUser(userId);
+
+    const activeUserIds = this.accountSessionsByKey.get(accountKey) || new Set<number>();
+    const conflictingUserIds = Array.from(activeUserIds).filter(
+      (existingUserId) => existingUserId !== userId && ctx.svr.isConnected(existingUserId)
+    );
+
+    if (!conflictingUserIds.length) {
+      activeUserIds.add(userId);
+      this.accountSessionsByKey.set(accountKey, activeUserIds);
+      this.accountKeyByUserId.set(userId, accountKey);
+      return true;
+    }
+
+    const kickedUserIds = Array.from(new Set<number>([userId, ...conflictingUserIds]));
+    this.log(
+      `Duplicate account session detected for ${accountKey}, kicking userIds ${kickedUserIds.join(", ")}`
+    );
+
+    for (const kickedUserId of kickedUserIds) {
+      this.clearAccountSessionForUser(kickedUserId);
+    }
+
+    for (const kickedUserId of kickedUserIds) {
+      if (!ctx.svr.isConnected(kickedUserId)) {
+        continue;
+      }
+
+      try {
+        ctx.svr.kick(kickedUserId);
+      } catch (err) {
+        console.error(`Failed to kick duplicate account session ${kickedUserId}:`, err);
+      }
+    }
+
+    return false;
+  }
+
+  private clearAccountSessionForUser(userId: number): void {
+    const accountKey = this.accountKeyByUserId.get(userId);
+    if (!accountKey) {
+      return;
+    }
+
+    this.accountKeyByUserId.delete(userId);
+
+    const activeUserIds = this.accountSessionsByKey.get(accountKey);
+    if (!activeUserIds) {
+      return;
+    }
+
+    activeUserIds.delete(userId);
+    if (!activeUserIds.size) {
+      this.accountSessionsByKey.delete(accountKey);
+    }
+  }
+
+  private gracefulDisconnectUserIds = new Set<number>();
+  private disconnectAnnouncementSeq = 0;
+  private accountKeyByUserId = new Map<number, string>();
+  private accountSessionsByKey = new Map<string, Set<number>>();
   private settingsObject: Settings;
   private fetchRetry = fetchRetry.default(global.fetch);
 }

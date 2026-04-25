@@ -1,7 +1,12 @@
 const path = require("path");
 const fs = require("fs");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
-const config = require("./config");
+const localConfigPath = path.resolve(__dirname, "config.json");
+const config = fs.existsSync(localConfigPath)
+  ? require(localConfigPath)
+  : {
+      outputPath: "../build/dist/client/Data/Platform/Distribution/CEF",
+    };
 
 const distPath = path.isAbsolute(config.outputPath)
   ? config.outputPath
@@ -13,11 +18,7 @@ module.exports = {
     path: distPath,
     filename: "build.js",
   },
-  mode: "development",
-  devServer: {
-    port: 1234,
-    hot: true,
-  },
+  mode: "production",
   plugins: [
     new HtmlWebpackPlugin({
       template: path.resolve(__dirname, "public/index.html"),

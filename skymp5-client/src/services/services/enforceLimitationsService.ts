@@ -9,10 +9,14 @@ export class EnforceLimitationsService extends ClientListener {
     }
 
     private onceUpdate() {
-        this.sp.Game.setInChargen(true, true, false);
+        this.disableVanillaWait();
     }
 
     private onGameLoad(event: GameLoadEvent) {
+        this.disableVanillaWait();
+    }
+
+    private disableVanillaWait() {
         this.sp.Game.setInChargen(true, true, false);
     }
 }

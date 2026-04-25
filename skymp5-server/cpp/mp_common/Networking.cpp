@@ -33,6 +33,37 @@ private:
   Packet* const packet;
 };
 
+std::string DescribeStartupResult(StartupResult result)
+{
+  switch (result) {
+    case StartupResult::RAKNET_STARTED:
+      return "RakNet started";
+    case StartupResult::RAKNET_ALREADY_STARTED:
+      return "RakNet is already started";
+    case StartupResult::INVALID_SOCKET_DESCRIPTORS:
+      return "invalid socket descriptors";
+    case StartupResult::INVALID_MAX_CONNECTIONS:
+      return "invalid max connections";
+    case StartupResult::SOCKET_FAMILY_NOT_SUPPORTED:
+      return "socket family not supported";
+    case StartupResult::SOCKET_PORT_ALREADY_IN_USE:
+      return "socket port is already in use";
+    case StartupResult::SOCKET_FAILED_TO_BIND:
+      return "socket failed to bind";
+    case StartupResult::SOCKET_FAILED_TEST_SEND:
+      return "socket test send failed";
+    case StartupResult::PORT_CANNOT_BE_ZERO:
+      return "port cannot be zero";
+    case StartupResult::FAILED_TO_CREATE_NETWORK_THREAD:
+      return "failed to create network thread";
+    case StartupResult::COULD_NOT_GENERATE_GUID:
+      return "could not generate GUID";
+    case StartupResult::STARTUP_OTHER_FAILURE:
+      return "other startup failure";
+  }
+  return "unknown startup failure";
+}
+
 const char* GetError(unsigned char packetType)
 {
   switch (packetType) {
@@ -67,8 +98,9 @@ public:
     socket.reset(new SocketDescriptor(0, nullptr));
     const auto res = peer->Startup(1, &*socket, 1);
     if (res != StartupResult::RAKNET_STARTED) {
-      throw std::runtime_error("Peer startup failed with code " +
-                               std::to_string(static_cast<int>(res)));
+      throw std::runtime_error(
+        "Peer startup failed: " + DescribeStartupResult(res) + " (code " +
+        std::to_string(static_cast<int>(res)) + ")");
     }
     const auto conRes = peer->Connect(ip.data(), port, password.data(),
                                       static_cast<int>(password.size()));
@@ -156,8 +188,10 @@ public:
 
     const auto res = peer->Startup(maxConnections, &*socket, 1);
     if (res != StartupResult::RAKNET_STARTED) {
-      throw std::runtime_error("Peer startup failed with code " +
-                               std::to_string(static_cast<int>(res)));
+      throw std::runtime_error("Peer startup failed on port " +
+                               std::to_string(port_) + ": " +
+                               DescribeStartupResult(res) + " (code " +
+                               std::to_string(static_cast<int>(res)) + ")");
     }
     peer->SetMaximumIncomingConnections(maxConnections);
     peer->SetTimeoutTime(timeoutTimeMs, {});

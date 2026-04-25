@@ -3,9 +3,9 @@
 This repo contains GUI demo for Skyrim Multiplayer. Original chat interface by **davinchi59** has been ported.
 
 * `yarn build` is used to build the project.
-* `yarn watch` is used to start live-reload server.
+* `yarn watch` is used to rebuild the bundle on every change.
 
-If you start a live-reload server and Skyrim Multiplayer server on the same machine, then live-reload would work in the game.
+If `outputPath` points at your Skyrim Multiplayer UI folder, the rebuilt assets will land there automatically while `yarn watch` is running.
 
 ## How To Use This 
 

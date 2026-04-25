@@ -31,8 +31,10 @@
 #include <antigo/Context.h>
 #include <antigo/ResolvedContext.h>
 #include <map>
+#include <mutex>
 #include <numeric>
 #include <optional>
+#include <unordered_set>
 
 #include "OpenContainerMessage.h"
 #include "SetInventoryMessage.h"
@@ -41,6 +43,17 @@
 #include "script_classes/PapyrusObjectReference.h" // kOriginalNameExpression
 
 constexpr uint32_t kPlayerCharacterLevel = 1;
+
+namespace {
+bool ShouldLogExteriorScriptSkipOnce(uint32_t cellOrWorld)
+{
+  static std::mutex mutex;
+  static std::unordered_set<uint32_t> loggedWorlds;
+
+  std::lock_guard<std::mutex> lock(mutex);
+  return loggedWorlds.insert(cellOrWorld).second;
+}
+}
 
 UpdatePropertyMessage MpObjectReference::CreatePropertyMessage_(
   MpObjectReference* self, const char* name, const std::string& valueDump)
@@ -1789,8 +1802,10 @@ void MpObjectReference::InitScripts()
     auto lookupRes =
       GetParent()->GetEspm().GetBrowser().LookupById(cellOrWorld);
     if (lookupRes.rec && lookupRes.rec->GetType() == "WRLD") {
-      spdlog::info("Skipping non-Sweet scripts for exterior form {:x}",
-                   cellOrWorld);
+      if (ShouldLogExteriorScriptSkipOnce(cellOrWorld)) {
+        spdlog::info("Skipping non-Sweet scripts for exterior form {:x}",
+                     cellOrWorld);
+      }
       scriptNames.erase(std::remove_if(scriptNames.begin(), scriptNames.end(),
                                        [](const std::string& val) {
                                          auto kPrefix = "Sweet";

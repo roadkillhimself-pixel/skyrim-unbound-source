@@ -180,7 +180,9 @@ DLLEXPORT bool SKSEAPI SKSEPlugin_Load_Impl(const SKSE::LoadInterface* skse)
   SKSE::GetMessagingInterface()->RegisterListener(
     [](SKSE::MessagingInterface::Message* a_msg) {
       EventHandler::HandleSKSEMessage(a_msg);
-      BrowserApiNirnLab::GetInstance().HandleSkseMessage(a_msg);
+      if (BrowserApi::GetBackend() == BrowserApi::Backend::kNirnLab) {
+        BrowserApiNirnLab::GetInstance().HandleSkseMessage(a_msg);
+      }
     });
 
   Hooks::Install();

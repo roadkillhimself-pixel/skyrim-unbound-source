@@ -37,6 +37,8 @@ export class Spawn implements System {
       }
 
       const mp = ctx.svr as unknown as Mp;
+      mp.set(actorId, "private.skrpProfileId", userProfileId);
+      mp.set(actorId, "private.indexed.profileId", userProfileId);
       mp.set(actorId, "private.discordRoles", discordRoleIds);
 
       if (discordId !== undefined) {

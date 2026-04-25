@@ -65,7 +65,9 @@ export class WorldView extends ClientListener {
       this.oldView = undefined;
       logTrace(this, 'Previous View destroyed');
     }
-    this.waitGameTimeAndAllowFormViewUpdate(1.0);
+    // Give the client a little extra time to finish its own load/spawn work
+    // before remote form updates start flooding in.
+    this.waitGameTimeAndAllowFormViewUpdate(1.75);
   }
 
   private resetAllFormViewsIfPlayerChangedWorld() {

@@ -13,6 +13,22 @@ export interface DiscordAuthSettings {
   hideIpRoleId?: string;
 }
 
+export interface DiscordUpdatesSettings {
+  botToken?: string;
+  channelId: string;
+  approvalRequired?: boolean;
+  approvalChannelId?: string;
+  approvalAllowedUserIds?: string[];
+  approvalAllowedRoleIds?: string[];
+  repoPath?: string;
+  pollIntervalMs?: number;
+  maxCommitsPerPoll?: number;
+  maxFilesPerCommit?: number;
+  mentionRoleId?: string;
+  stateFilePath?: string;
+  announceInitialCommit?: boolean;
+}
+
 export class Settings {
   masterKey: string | null = null;
   port = 7777;
@@ -31,6 +47,7 @@ export class Settings {
     },
   ];
   discordAuth: DiscordAuthSettings | null = null;
+  discordUpdates: DiscordUpdatesSettings | null = null;
 
   allSettings: Record<string, unknown> | null = null;
 
@@ -68,6 +85,7 @@ export class Settings {
       'startPoints',
       'offlineMode',
       'discordAuth',
+      'discordUpdates',
     ].forEach((prop) => {
       if (settings[prop]) {
         (this as Record<string, unknown>)[prop] = settings[prop];
@@ -75,6 +93,7 @@ export class Settings {
     });
 
     this.allSettings = settings;
+    printPublicTestReadiness(settings);
   }
 
   private static parseArgs() {
@@ -86,6 +105,131 @@ export class Settings {
   }
 
   private static cachedPromise: Promise<Settings> | null = null;
+}
+
+type PublicTestReadiness = {
+  infos: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+function asNonEmptyString(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function isLoopbackHost(host: unknown): boolean {
+  const normalized = asNonEmptyString(host)?.toLowerCase();
+  return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
+}
+
+function getUiPort(port: number): number {
+  return port === 7777 ? 3000 : port + 1;
+}
+
+function getPublicTestReadiness(settings: Record<string, unknown>): PublicTestReadiness {
+  const infos: string[] = [];
+  const warnings: string[] = [];
+  const errors: string[] = [];
+
+  const offlineMode = settings.offlineMode === true;
+  const master = asNonEmptyString(settings.master);
+  const masterKey = asNonEmptyString(settings.masterKey);
+  const serverName = asNonEmptyString(settings.name);
+  const listenHost = asNonEmptyString(settings.listenHost);
+  const uiListenHost = asNonEmptyString(settings.uiListenHost);
+  const password = asNonEmptyString(settings.password);
+  const maxPlayers = typeof settings.maxPlayers === 'number' ? settings.maxPlayers : undefined;
+  const port = typeof settings.port === 'number' ? settings.port : 7777;
+  const uiPort = getUiPort(port);
+  const ucpPublicUrl = asNonEmptyString(settings.ucpPublicUrl) ?? asNonEmptyString(settings.ucpUrl) ?? asNonEmptyString(settings.publicUrl);
+  const recoveryMailConfig = asRecord(settings.ucpMail) ?? asRecord(settings.mail) ?? asRecord(settings.smtp);
+
+  if (offlineMode) {
+    infos.push(
+      'Server is currently in offline mode. This is fine for local/LAN testing, but internet testers will not authenticate through the master server.'
+    );
+    warnings.push(
+      'Public test mode is not active yet. To go live, switch "offlineMode" to false and configure both "master" and "masterKey".'
+    );
+  } else {
+    infos.push(`Online mode is enabled. Expected external ports are UDP ${port} and TCP ${uiPort}.`);
+
+    if (!master) {
+      errors.push('Online mode requires a non-empty "master" URL.');
+    }
+    if (!masterKey) {
+      errors.push('Online mode requires a non-empty "masterKey".');
+    }
+    if (isLoopbackHost(listenHost)) {
+      errors.push(
+        `"listenHost" is set to ${listenHost}, so the main game socket only accepts localhost traffic. Use "0.0.0.0" or remove the field for public testing.`
+      );
+    }
+    if (isLoopbackHost(uiListenHost)) {
+      errors.push(
+        `"uiListenHost" is set to ${uiListenHost}, so remote clients cannot fetch server UI assets. Use "0.0.0.0" or remove the field for public testing.`
+      );
+    }
+  }
+
+  if (!serverName || /^(my server|yet another server)$/i.test(serverName)) {
+    warnings.push('Server name still looks default-ish. Give the public test a distinct server name before inviting players.');
+  }
+
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
+    errors.push(`Configured port "${settings.port}" is invalid.`);
+  }
+
+  if (typeof maxPlayers === 'number' && maxPlayers < 2) {
+    errors.push(`Configured maxPlayers "${maxPlayers}" is too low for external testing.`);
+  } else if (typeof maxPlayers === 'number' && maxPlayers < 8) {
+    warnings.push(`maxPlayers is only ${maxPlayers}. That's okay for a small closed test, but low for a wider opening.`);
+  }
+
+  if (!password) {
+    warnings.push('No server password is configured. That may be fine for a true public launch, but a temporary password is safer while testing.');
+  }
+
+  if (!ucpPublicUrl) {
+    warnings.push('Password recovery links need a public UCP URL. Set "ucpPublicUrl" once the site is live.');
+  }
+
+  if (!recoveryMailConfig || (!asNonEmptyString(recoveryMailConfig.host) && !asNonEmptyString(recoveryMailConfig.smtpHost))) {
+    warnings.push('Password recovery email is not configured yet. Forgot-password will stay disabled until SMTP settings are provided.');
+  }
+
+  return { infos, warnings, errors };
+}
+
+function printPublicTestReadiness(settings: Record<string, unknown>): void {
+  const readiness = getPublicTestReadiness(settings);
+  const lines = [
+    ...readiness.infos.map((message) => `[info] ${message}`),
+    ...readiness.warnings.map((message) => `[warning] ${message}`),
+    ...readiness.errors.map((message) => `[error] ${message}`),
+  ];
+
+  if (lines.length === 0) {
+    return;
+  }
+
+  console.log('[public-test-readiness] Startup check:');
+  for (const line of lines) {
+    console.log(`[public-test-readiness] ${line}`);
+  }
 }
 
 /**

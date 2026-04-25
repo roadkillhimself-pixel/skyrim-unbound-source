@@ -40,6 +40,18 @@ export class SettingsService extends ClientListener {
     return this.normalizeUrl((this.sp.settings["skymp5-client"]["master"] as string) || "https://gateway.skymp.net");
   }
 
+  public getServerUiUrl() {
+    const explicit = this.sp.settings["skymp5-client"]["server-ui-url"] as string | undefined;
+    if (explicit) {
+      return this.normalizeUrl(explicit);
+    }
+
+    const host = this.sp.settings["skymp5-client"]["server-ip"] as string;
+    const port = this.sp.settings["skymp5-client"]["server-port"] as number;
+    const uiPort = port === 7777 ? 3000 : port + 1;
+    return this.normalizeUrl(`http://${host}:${uiPort}`);
+  }
+
   public makeMasterApiClient(): IHttpClientWithCallback {
     const masterApiBaseUrl = this.getMasterUrl();
     return new HttpClient(masterApiBaseUrl) as IHttpClientWithCallback;
@@ -85,7 +97,8 @@ export class SettingsService extends ClientListener {
           );
 
           let headers: HttpHeaders = {};
-          let session = this.controller.lookupListener(AuthService).readAuthDataFromDisk()?.session;
+          const authData = this.controller.lookupListener(AuthService).readAuthDataFromDisk();
+          const session = authData?.session;
           if (session) {
             headers['X-Session'] = session;
           }
@@ -139,6 +152,11 @@ export class SettingsService extends ClientListener {
   }
 
   public async getServerMods(): Promise<Mod[]> {
+    if (this.sp.settings['skymp5-client']['server-info-ignore'] as boolean) {
+      logTrace(this, 'Skipping server mods manifest request due to server-info-ignore in config');
+      return [];
+    }
+
     const masterApiClient = this.makeMasterApiClient();
 
     const masterKey = this.getServerMasterKey();

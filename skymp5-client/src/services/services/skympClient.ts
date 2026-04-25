@@ -28,9 +28,23 @@ export class SkympClient extends ClientListener {
     this.controller.emitter.on("createActorMessage", (e) => this.onActorCreateMessage(e));
 
     // TODO: refactor out very similar code in frontHotReloadService.ts
+    const settingsGameData = settings["skymp5-client"]["gameData"] as any;
+    const isOfflineMode = Number.isInteger(settingsGameData?.profileId);
     const authGameData = storage[authGameDataStorageKey] as AuthGameData | undefined;
 
-    const storageHasValidAuthGameData = authGameData?.local || authGameData?.remote;
+    // Public online sessions should always go through fresh auth UI on process
+    // startup. Keep only explicit offline mode auto-start behavior.
+    if (!isOfflineMode && authGameData) {
+      logTrace(this, `Clearing persisted AuthGameData on fresh online startup, requesting auth UI`);
+      storage[authGameDataStorageKey] = undefined as unknown as AuthGameData;
+    }
+
+    const storageHasValidAuthGameData = isOfflineMode && authGameData?.local;
+    this.pushConnectDebug("constructor", {
+      isOfflineMode,
+      hasPersistedAuthGameData: !!authGameData,
+      storageHasValidAuthGameData,
+    });
 
     if (storageHasValidAuthGameData) {
       logTrace(this, `Recovered AuthGameData from storage, starting client`);
@@ -48,6 +62,12 @@ export class SkympClient extends ClientListener {
 
   private onAuthAttempt(e: AuthAttemptEvent) {
     logTrace(this, `Caught auth event`);
+    this.pushConnectDebug("authAttempt", {
+      hasLocal: !!e.authGameData.local,
+      hasRemote: !!e.authGameData.remote,
+      selectedCharacterId: e.authGameData.remote?.selectedCharacterId ?? null,
+      hasPlaySession: !!e.authGameData.remote?.playSession,
+    });
 
     storage[authGameDataStorageKey] = e.authGameData;
 
@@ -65,14 +85,21 @@ export class SkympClient extends ClientListener {
 
   private onConnectionFailed(e: ConnectionFailed) {
     logTrace(this, "Connection failed");
+    this.pushConnectDebug("connectionFailed", {
+      error: (e as Record<string, unknown>)?.error ?? null,
+    });
   }
 
   private onConnectionDenied(e: ConnectionDenied) {
     logTrace(this, "Connection denied: " + e.error);
+    this.pushConnectDebug("connectionDenied", {
+      error: e.error,
+    });
   }
 
   private startClient() {
     // once("tick", ...) is needed to ensure networking service initialized
+    this.pushConnectDebug("startClient");
     this.controller.once("tick", () => this.establishConnectionConditional());
     this.ctor();
   }
@@ -88,17 +115,38 @@ export class SkympClient extends ClientListener {
     const isConnected = this.controller.lookupListener(networking.NetworkingService).isConnected();
     if (isConnected) {
       logTrace(this, 'Reconnect is not required');
+      this.pushConnectDebug("establishConnectionSkipped", {
+        reason: "alreadyConnected",
+      });
       return;
     }
 
+    this.pushConnectDebug("getTargetPeerRequested");
     this.controller.lookupListener(SettingsService).getTargetPeer(
       ({ host, port }: TargetPeer) => {
         storage.targetIp = host;
         storage.targetPort = port;
+        this.pushConnectDebug("targetPeerResolved", {
+          host,
+          port,
+        });
 
         printConsole(`Connecting to ${host}:${port}`);
         this.controller.lookupListener(networking.NetworkingService).connect(host, port);
+        this.pushConnectDebug("connectCalled", {
+          host,
+          port,
+        });
       },
     );
   }
+
+  private pushConnectDebug(event: string, details?: Record<string, unknown>) {
+    void event;
+    void details;
+  }
+
+  private readonly connectDebugPluginName = "connect-flow-debug";
+  private readonly connectDebugEntryLimit = 80;
+  private connectDebugEntries: Array<Record<string, unknown>> = [];
 }

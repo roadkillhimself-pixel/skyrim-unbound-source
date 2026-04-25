@@ -58,6 +58,7 @@ import {
   remoteIdToLocalId,
 } from '../../view/worldViewMisc';
 import { TimeService } from './timeService';
+import { AuthGameData, authGameDataStorageKey } from '../../features/authModel';
 import { logTrace, logError } from '../../logging';
 
 import { SpellCastMessage } from '../messages/spellCastMessage';
@@ -97,6 +98,8 @@ const unequipIronHelmet = () => {
     pl.unequipItem(ironHelment, false, true);
   }
 };
+
+const serverInitiatedQuitStorageKey = "skymp-server-initiated-main-menu-quit";
 
 export class RemoteServer extends ClientListener {
   constructor(private sp: Sp, private controller: CombinedController) {
@@ -605,12 +608,16 @@ export class RemoteServer extends ClientListener {
               { minutes: 0, seconds: 0, hours: this.controller.lookupListener(TimeService).getTime().newGameHourValue }
             );
             once('update', () => {
-              applyPcInv();
-              Utility.wait(0.3).then(applyPcInv);
-              // Note: appearance part was copy-pasted
-              if (msg.appearance) {
-                applyAppearanceToPlayer(msg.appearance);
-              }
+              // Let the freshly loaded player state settle before we start
+              // reapplying inventory/appearance on top of it.
+              Utility.wait(0.6).then(() => {
+                applyPcInv();
+                // Keep one retry, just a bit later than before.
+                Utility.wait(0.45).then(applyPcInv);
+                if (msg.appearance) {
+                  applyAppearanceToPlayer(msg.appearance);
+                }
+              });
             });
           }
         });
@@ -642,6 +649,7 @@ export class RemoteServer extends ClientListener {
       this.worldModel.playerCharacterRefrId = 0;
 
       // TODO: move to a separate module
+      storage[serverInitiatedQuitStorageKey] = true;
       once('update', () => Game.quitToMainMenu());
     }
 
@@ -851,6 +859,18 @@ export class RemoteServer extends ClientListener {
       once('update', () =>
         Utility.wait(0.3).then(() => {
           unequipIronHelmet();
+          const authGameData = storage[authGameDataStorageKey] as AuthGameData | undefined;
+          const selectedCharacterName = authGameData?.remote?.selectedCharacterName?.trim();
+          if (selectedCharacterName) {
+            try {
+              const player = Game.getPlayer() as Actor | null;
+              const base = player?.getBaseObject() as any;
+              base?.setName?.(selectedCharacterName);
+              player?.setDisplayName?.(selectedCharacterName, true);
+            } catch (error) {
+              logTrace(this, 'Failed to seed race menu name from selected character', `${error}`);
+            }
+          }
           Game.showRaceMenu();
         }),
       );

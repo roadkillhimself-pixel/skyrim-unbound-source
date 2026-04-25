@@ -33,6 +33,7 @@ struct MyChromiumApp : CefApp
   TP_NOCOPYMOVE(MyChromiumApp);
 
   void Initialize(bool initChromium) noexcept;
+  bool IsChromiumInitialized() const noexcept { return m_chromiumInitialized; }
   void ExecuteAsync(
     const std::string& acFunction,
     const CefRefPtr<CefListValue>& apArguments = nullptr) const noexcept;
@@ -69,10 +70,13 @@ struct MyChromiumApp : CefApp
   IMPLEMENT_REFCOUNTING(MyChromiumApp);
 
 private:
+  void ApplyPendingUrlLoadIfNeeded() const noexcept;
+
   CefRefPtr<MyBrowserProcessHandler> m_pBrowserProcessHandler;
   CefRefPtr<OverlayClient> m_pGameClient;
   std::unique_ptr<RenderProvider> m_pRenderProvider;
   std::wstring m_processName;
+  bool m_chromiumInitialized = false;
   mutable int m_wasFocused = -1;
   const std::shared_ptr<ProcessMessageListener> onProcessMessage;
 

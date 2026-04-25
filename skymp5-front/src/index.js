@@ -39,5 +39,6 @@ window.playSound = (name) => {
 };
 
 if (window.skyrimPlatform?.sendMessage) {
-  window.skyrimPlatform.sendMessage('front-loaded');
+  const frontLoadedEventKey = window.__skympFrontLoadedEventKey || 'front-loaded-ui';
+  window.skyrimPlatform.sendMessage(frontLoadedEventKey);
 }

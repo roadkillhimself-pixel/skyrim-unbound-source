@@ -453,3 +453,84 @@ A boolean setting that controls hot-reloading behavior for connected clients.
   "enableGamemodeDataUpdatesBroadcast": false
   // ...
 }
+```
+
+## disableVanillaScriptsInExterior
+
+A boolean setting that controls the hardcoded exterior Papyrus script filter.
+
+* `true` (Default): non-`Sweet*` scripts on exterior objects are skipped.
+* `false`: vanilla and other non-`Sweet*` exterior scripts are allowed to run.
+
+This is useful for compatibility when your server is not built around SweetPie/SweetTaffy content, but it may expose script behavior that the original filter was masking.
+
+```json5
+{
+  // ...
+  "disableVanillaScriptsInExterior": false
+  // ...
+}
+```
+
+## discordUpdates
+
+Posts repository updates to a Discord channel by watching new git commits on the running server checkout.
+
+This is the safest way to broadcast "what we just changed" without building a second bot process. The feed is sent by the existing server process and only posts commits that appear after the feed has been enabled.
+
+```json5
+{
+  // ...
+  "discordUpdates": {
+    "botToken": "YOUR_BOT_TOKEN",
+    "channelId": "123456789012345678",
+    "approvalRequired": true,
+    "approvalChannelId": "123456789012345678",
+    "approvalAllowedUserIds": ["111111111111111111"],
+    "approvalAllowedRoleIds": ["222222222222222222"],
+    "pollIntervalMs": 15000,
+    "maxCommitsPerPoll": 10,
+    "mentionRoleId": "987654321098765432",
+    "announceInitialCommit": true
+  }
+  // ...
+}
+```
+
+Fields:
+
+* `botToken`: Discord bot token with permission to post messages into the target channel.
+* `channelId`: The target Discord text channel ID.
+* `approvalRequired`: Optional boolean. Defaults to `true`. When enabled, the bot posts a pending changelog with `Publish` and `Skip` buttons instead of immediately publishing it.
+* `approvalChannelId`: Optional channel ID for approval prompts. Defaults to `channelId`.
+* `approvalAllowedUserIds`: Optional list of Discord user IDs allowed to press `Publish` or `Skip`. If both approval allow-lists are empty, only users with Discord server management/admin permission may approve.
+* `approvalAllowedRoleIds`: Optional list of Discord role IDs allowed to press `Publish` or `Skip`.
+* `repoPath`: Optional checkout to watch. Defaults to the current server working tree.
+* `pollIntervalMs`: Optional polling interval in milliseconds. Defaults to `60000`.
+* `maxCommitsPerPoll`: Optional cap on how many new commits are posted per poll. Defaults to `5`.
+* `maxFilesPerCommit`: Legacy option retained for compatibility. The feed now summarizes technical scope instead of listing file paths.
+* `mentionRoleId`: Optional role ID to ping on each update.
+* `stateFilePath`: Optional file used to remember the last announced commit. Defaults to `${dataDir}/discord-updates-state.json`.
+* `announceInitialCommit`: Optional boolean. If `true`, the current HEAD commit is announced once when the feed is first enabled, which is useful for setup verification. Defaults to `false`.
+
+Each Discord embed summarizes changed files into readable areas such as Website, UCP and accounts, Admin panel, Client, Server, Database, Security and integrations, and Infrastructure and build. Medium/high-impact areas are called out directly. Smaller docs, asset, formatting, and cleanup changes are folded into a Quality of life line so routine polish does not look like a major server update.
+
+For public-test setups, prefer storing these values in an ignored local override file instead of committing them into the shared template.
+
+## ucpSecurity
+
+Controls high-risk UCP account recovery behavior.
+
+```json5
+{
+  // ...
+  "ucpSecurity": {
+    "allowSecurityQuestionPasswordReset": false
+  }
+  // ...
+}
+```
+
+Fields:
+
+* `allowSecurityQuestionPasswordReset`: Optional boolean. Defaults to `false`. When disabled, saved security questions can still be managed by the account UI, but the public security-question password reset endpoints return `403`. Keep this disabled for public tests unless another factor or staff-review process protects the reset flow.

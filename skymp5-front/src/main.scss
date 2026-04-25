@@ -9,7 +9,9 @@
 }
 
 body {
+  margin: 0;
   overflow: hidden;
+  background-color: transparent;
 }
 
 .App {
@@ -18,10 +20,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  &.bg {
-    background-image: url('./img/bg.png');
-    background-size: 100% 100%;
-  }
+  background: transparent;
 }
 
 @font-face {

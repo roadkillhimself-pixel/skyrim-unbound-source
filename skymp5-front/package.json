@@ -4,12 +4,12 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "webpack --config webpack.config.ts",
-    "watch": "webpack serve",
+    "build": "webpack --config webpack.config.js",
+    "watch": "webpack --watch --config webpack.config.js",
     "lint": "eslint src --ext .ts",
     "lint:fix": "yarn lint --fix",
-    "storybook": "start-storybook -p 6006",
-    "build-storybook": "build-storybook"
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "keywords": [],
   "author": "Leonid Pospelov <pospelovlm@yandex.ru>",
@@ -18,13 +18,11 @@
     "@babel/core": "^7.17.9",
     "@babel/preset-env": "^7.16.11",
     "@babel/preset-react": "^7.16.7",
-    "@storybook/addon-actions": "^6.4.21",
-    "@storybook/addon-essentials": "^6.4.21",
-    "@storybook/addon-links": "^6.4.21",
-    "@storybook/builder-webpack5": "^6.4.21",
-    "@storybook/manager-webpack5": "^6.4.21",
-    "@storybook/preset-scss": "^1.0.3",
-    "@storybook/react": "^6.4.21",
+    "@storybook/addon-controls": "^8.6.18",
+    "@storybook/addon-docs": "^8.6.18",
+    "@storybook/addon-links": "^8.6.18",
+    "@storybook/react-webpack5": "^8.6.18",
+    "@storybook/test": "^8.6.18",
     "@types/react": "^18.0.2",
     "@types/react-dom": "^18.0.0",
     "@types/react-resizable": "^3.0.1",
@@ -42,17 +40,17 @@
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.5.0",
     "react-redux": "^7.2.8",
-    "react-router-dom": "^6.3.0",
+    "react-router-dom": "^6.30.2",
     "redux": "^4.1.2",
-    "sass": "^1.50.0",
+    "sass": "^1.99.0",
     "sass-loader": "^12.6.0",
+    "storybook": "^8.6.18",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.2.8",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.3",
-    "webpack": "^5.94.0",
-    "webpack-cli": "^4.9.2",
-    "webpack-dev-server": "^4.8.1"
+    "webpack": "^5.106.2",
+    "webpack-cli": "^4.9.2"
   },
   "dependencies": {
     "history": "^5.3.0",
@@ -71,6 +69,21 @@
     ]
   },
   "resolutions": {
-    "webpack-dev-server/webpack-dev-middleware/memfs": "^4.7.7"
+    "@storybook/react-webpack5/@storybook/builder-webpack5/fork-ts-checker-webpack-plugin/cosmiconfig/yaml": "1.10.3",
+    "@storybook/react-webpack5/@storybook/builder-webpack5/url/qs": "6.14.2",
+    "@babel/helpers": "^7.29.2",
+    "@babel/runtime": "^7.29.2",
+    "brace-expansion": "^1.1.13",
+    "braces": "^3.0.3",
+    "cross-spawn": "^7.0.6",
+    "diff": "^9.0.0",
+    "flatted": "^3.4.2",
+    "follow-redirects": "^1.16.0",
+    "js-yaml": "^4.1.1",
+    "lodash": "^4.18.1",
+    "minimatch": "^3.1.4",
+    "micromatch": "^4.0.8",
+    "picomatch": "^2.3.2",
+    "url/qs": "^6.14.2"
   }
 }

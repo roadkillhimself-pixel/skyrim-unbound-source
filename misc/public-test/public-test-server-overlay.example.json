@@ -1,0 +1,11 @@
+{
+  "name": "SK:RP Public Test",
+  "offlineMode": false,
+  "master": "https://gateway.skymp.net",
+  "masterKey": "replace-with-your-unique-master-key",
+  "listenHost": "0.0.0.0",
+  "uiListenHost": "0.0.0.0",
+  "port": 7777,
+  "maxPlayers": 32,
+  "password": "replace-with-temporary-test-password"
+}

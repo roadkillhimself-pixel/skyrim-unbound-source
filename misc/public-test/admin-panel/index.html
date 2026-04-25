@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Skyrim Unbound Admin</title>
+    <link rel="stylesheet" href="./app.css?v=skyrim-admin-20260423-3" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand__eyebrow">Skyrim Unbound</div>
+          <div class="brand__title">Admin Control</div>
+        </div>
+
+        <nav class="nav" id="nav">
+          <button class="nav__button active" data-view="dashboard">Dashboard</button>
+          <button class="nav__button" data-view="tickets">Tickets</button>
+          <button class="nav__button" data-view="applications">Applications</button>
+          <button class="nav__button" data-view="events">Events</button>
+          <button class="nav__button" data-view="moderation">Moderation</button>
+          <button class="nav__button" data-view="staff">Staff</button>
+          <button class="nav__button" data-view="audit">Audit</button>
+        </nav>
+
+        <div class="sidebar__status" id="sessionStatus"></div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <div class="topbar__title">Control Plane</div>
+            <div class="topbar__subtitle" id="serverLine">Connecting...</div>
+          </div>
+          <div class="topbar__actions">
+            <a class="button button--ghost" href="/ucp/" target="_blank" rel="noreferrer">Open UCP</a>
+            <button class="button button--ghost" id="refreshButton" type="button">Refresh</button>
+          </div>
+        </header>
+
+        <section class="banner hidden" id="bootstrapBanner">
+          <div>
+            <div class="banner__title">Founder bootstrap is available</div>
+            <div class="banner__text">No staff roles exist yet. The current account can claim Founder once.</div>
+          </div>
+          <button class="button" id="bootstrapFounderButton" type="button">Claim Founder</button>
+        </section>
+
+        <section class="banner hidden" id="unauthorizedBanner">
+          <div>
+            <div class="banner__title">Sign in first</div>
+            <div class="banner__text">This panel uses the same UCP session as the account portal.</div>
+          </div>
+          <a class="button" href="/ucp/">Go To UCP</a>
+        </section>
+
+        <section class="banner hidden" id="forbiddenBanner">
+          <div>
+            <div class="banner__title">No panel access yet</div>
+            <div class="banner__text">This account is authenticated, but does not currently have a staff role with panel access.</div>
+          </div>
+        </section>
+
+        <div class="message-box" id="globalMessage"></div>
+
+        <section class="view active" data-view-panel="dashboard">
+          <div class="summary-grid" id="summaryGrid"></div>
+
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Current Staff Identity</h2>
+              </div>
+              <div class="key-value" id="identityCard"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Active Permissions</h2>
+              </div>
+              <div class="pill-list" id="permissionList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="tickets">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Create Ticket</h2>
+              </div>
+              <form class="stack" id="ticketCreateForm">
+                <label class="field">
+                  <span>Subject</span>
+                  <input name="subject" type="text" maxlength="120" required />
+                </label>
+                <label class="field">
+                  <span>Category</span>
+                  <input name="category" type="text" value="GENERAL" maxlength="50" />
+                </label>
+                <label class="field">
+                  <span>Message</span>
+                  <textarea name="message" rows="6" required></textarea>
+                </label>
+                <button class="button" type="submit">Open Ticket</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Open Tickets</h2>
+                <div class="toolbar">
+                  <label class="inline-field">
+                    <span>Status</span>
+                    <select id="ticketStatusFilter">
+                      <option value="">All</option>
+                      <option value="OPEN">Open</option>
+                      <option value="WAITING_STAFF">Waiting Staff</option>
+                      <option value="WAITING_PLAYER">Waiting Player</option>
+                      <option value="RESOLVED">Resolved</option>
+                      <option value="CLOSED">Closed</option>
+                    </select>
+                  </label>
+                  <label class="checkbox checkbox--inline">
+                    <input id="ticketMineFilter" type="checkbox" />
+                    <span>Mine</span>
+                  </label>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="ticketsTable"></table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel__header">
+              <h2>Selected Ticket</h2>
+            </div>
+            <div id="ticketDetailEmpty" class="empty-state">Pick a ticket to inspect its thread.</div>
+            <div class="hidden" id="ticketDetail">
+              <div class="toolbar" id="ticketDetailMeta"></div>
+              <div class="thread" id="ticketThread"></div>
+              <form class="stack" id="ticketReplyForm">
+                <label class="field">
+                  <span>Reply</span>
+                  <textarea name="message" rows="4" required></textarea>
+                </label>
+                <label class="checkbox">
+                  <input name="internalNote" type="checkbox" />
+                  <span>Internal note</span>
+                </label>
+                <div class="toolbar">
+                  <button class="button" type="submit">Send Reply</button>
+                  <button class="button button--ghost" id="assignTicketToMeButton" type="button">Assign To Me</button>
+                  <button class="button button--ghost" id="resolveTicketButton" type="button">Mark Resolved</button>
+                  <button class="button button--ghost" id="closeTicketButton" type="button">Close</button>
+                </div>
+              </form>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="applications">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Whitelist Review Desk</h2>
+              </div>
+              <div class="stack">
+                <div class="muted">
+                  New players now submit their whitelist application from the UCP before the rest of their account hub unlocks.
+                  Supporters and admins review those submissions here.
+                </div>
+                <div class="answer-card">
+                  <div><strong>Review expectations</strong></div>
+                  <div class="thread__meta">Character quality, rules knowledge, forbidden roleplay awareness, and grounded IC realism.</div>
+                  <div>
+                    Use deny or request changes when an answer fails the whitelist standard. Mark the failed question sections so the player can edit their saved draft instead of rewriting from scratch.
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Application Queue</h2>
+                <label class="inline-field">
+                  <span>Status</span>
+                  <select id="applicationStatusFilter">
+                    <option value="">All</option>
+                    <option value="SUBMITTED">Submitted</option>
+                    <option value="UNDER_REVIEW">Under Review</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="DENIED">Denied</option>
+                  </select>
+                </label>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="applicationsTable"></table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel__header">
+              <h2>Selected Application</h2>
+            </div>
+            <div id="applicationDetailEmpty" class="empty-state">Pick an application to review.</div>
+            <div class="hidden" id="applicationDetail">
+              <div class="stack" id="applicationAnswers"></div>
+              <div class="stack" id="applicationReviews"></div>
+              <form class="stack" id="applicationReviewForm">
+                <label class="field">
+                  <span>Decision</span>
+                  <select name="decision">
+                    <option value="COMMENT">Comment</option>
+                    <option value="REQUEST_CHANGES">Request Changes</option>
+                    <option value="APPROVE">Approve</option>
+                    <option value="DENY">Deny</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Decision Message</span>
+                  <textarea name="comment" rows="4"></textarea>
+                </label>
+                <div class="stack hidden" id="applicationFailureChecklist"></div>
+                <label class="checkbox">
+                  <input name="assignToMe" type="checkbox" />
+                  <span>Assign to me</span>
+                </label>
+                <button class="button" type="submit">Submit Review</button>
+              </form>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="events">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2 id="eventEditorHeading">Create Event</h2>
+                <button class="button button--ghost" id="eventResetButton" type="button">New Event</button>
+              </div>
+              <form class="stack" id="eventEditorForm">
+                <input name="eventId" type="hidden" />
+                <div class="muted" id="eventEditorHint">
+                  Times use your local browser clock while editing, then save as a shared timestamp for players.
+                </div>
+                <label class="field">
+                  <span>Event Title</span>
+                  <input name="title" type="text" maxlength="120" required />
+                </label>
+                <label class="field">
+                  <span>Starts At</span>
+                  <input name="startsAt" type="datetime-local" required />
+                </label>
+                <label class="field">
+                  <span>Status</span>
+                  <select name="status">
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="CANCELLED">Cancelled</option>
+                    <option value="ARCHIVED">Archived</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Description</span>
+                  <textarea name="description" rows="8" required></textarea>
+                </label>
+                <div class="toolbar">
+                  <button class="button" id="eventSaveButton" type="submit">Create Event</button>
+                  <button class="button button--danger hidden" id="eventArchiveButton" type="button">Archive Event</button>
+                </div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Event Schedule</h2>
+                <div class="toolbar">
+                  <label class="inline-field">
+                    <span>Month</span>
+                    <input id="eventsMonthFilter" type="month" />
+                  </label>
+                  <label class="inline-field">
+                    <span>Status</span>
+                    <select id="eventsStatusFilter">
+                      <option value="">Active</option>
+                      <option value="SCHEDULED">Scheduled</option>
+                      <option value="CANCELLED">Cancelled</option>
+                      <option value="ARCHIVED">Archived</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="eventsTable"></table>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="moderation">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Create Moderation Case</h2>
+              </div>
+              <form class="stack" id="caseCreateForm">
+                <label class="field">
+                  <span>Summary</span>
+                  <input name="summary" type="text" maxlength="180" required />
+                </label>
+                <label class="field">
+                  <span>Category</span>
+                  <input name="category" type="text" value="GENERAL" maxlength="80" />
+                </label>
+                <label class="field">
+                  <span>Severity (1-5)</span>
+                  <input name="severity" type="number" min="1" max="5" value="1" />
+                </label>
+                <label class="field">
+                  <span>Target Account ID</span>
+                  <input name="targetAccountId" type="number" min="1" />
+                </label>
+                <label class="field">
+                  <span>Description</span>
+                  <textarea name="description" rows="6"></textarea>
+                </label>
+                <button class="button" type="submit">Open Case</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Cases</h2>
+                <label class="inline-field">
+                  <span>Status</span>
+                  <select id="caseStatusFilter">
+                    <option value="">All</option>
+                    <option value="OPEN">Open</option>
+                    <option value="UNDER_REVIEW">Under Review</option>
+                    <option value="CLOSED">Closed</option>
+                  </select>
+                </label>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="casesTable"></table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel__header">
+              <h2>Selected Case</h2>
+            </div>
+            <div id="caseDetailEmpty" class="empty-state">Pick a case to inspect it.</div>
+            <div class="hidden" id="caseDetail">
+              <div class="stack" id="caseSummary"></div>
+              <div class="stack" id="casePunishments"></div>
+              <form class="stack" id="punishmentCreateForm">
+                <label class="field">
+                  <span>Punishment Type</span>
+                  <select name="punishmentType">
+                    <option value="WARNING">Warning</option>
+                    <option value="MUTE">Mute</option>
+                    <option value="JAIL">Jail</option>
+                    <option value="FREEZE">Freeze</option>
+                    <option value="TEMP_BAN">Temp Ban</option>
+                    <option value="PERM_BAN">Perm Ban</option>
+                    <option value="NAME_FORCED_CHANGE">Force Rename</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Target Account ID</span>
+                  <input name="accountId" type="number" min="1" />
+                </label>
+                <label class="field">
+                  <span>Duration Hours</span>
+                  <input name="durationHours" type="number" min="1" />
+                </label>
+                <label class="field">
+                  <span>Public Reason</span>
+                  <textarea name="reasonPublic" rows="2"></textarea>
+                </label>
+                <label class="field">
+                  <span>Internal Reason</span>
+                  <textarea name="reasonInternal" rows="3"></textarea>
+                </label>
+                <button class="button" type="submit">Add Punishment</button>
+              </form>
+            </div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="staff">
+          <div class="layout-two">
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Assign Staff Role</h2>
+              </div>
+              <form class="stack" id="staffAssignForm">
+                <label class="field">
+                  <span>Search Account</span>
+                  <input name="accountQuery" type="text" maxlength="80" />
+                </label>
+                <div class="list-box" id="accountSearchResults"></div>
+                <label class="field">
+                  <span>Selected Account ID</span>
+                  <input name="accountId" type="number" min="1" required />
+                </label>
+                <label class="field">
+                  <span>Role</span>
+                  <select name="roleCode" id="staffRoleSelect"></select>
+                </label>
+                <label class="field">
+                  <span>Note</span>
+                  <textarea name="note" rows="3"></textarea>
+                </label>
+                <button class="button" type="submit">Grant Role</button>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel__header">
+                <h2>Active Staff Assignments</h2>
+              </div>
+              <div class="table-wrap">
+                <table class="table" id="staffAssignmentsTable"></table>
+              </div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel__header">
+              <h2>Role Matrix</h2>
+            </div>
+            <div class="stack" id="roleMatrix"></div>
+          </section>
+        </section>
+
+        <section class="view" data-view-panel="audit">
+          <section class="panel">
+            <div class="panel__header">
+              <h2>Audit Trail</h2>
+            </div>
+            <div class="table-wrap">
+              <table class="table" id="auditTable"></table>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="./app.js?v=skyrim-admin-20260423-3"></script>
+  </body>
+</html>

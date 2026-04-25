@@ -1,0 +1,10 @@
+{
+  "discordUpdates": {
+    "botToken": "YOUR_DISCORD_BOT_TOKEN",
+    "channelId": "YOUR_DISCORD_CHANNEL_ID",
+    "pollIntervalMs": 15000,
+    "maxCommitsPerPoll": 10,
+    "maxFilesPerCommit": 8,
+    "announceInitialCommit": true
+  }
+}

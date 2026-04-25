@@ -1,0 +1,54 @@
+{
+  "current": "0.4.0-public-test",
+  "versions": [
+    {
+      "version": "0.4.0-public-test",
+      "date": "2026-04-25",
+      "status": "Hardening pass",
+      "summary": "Security and release hygiene pass for the public-test stack.",
+      "highlights": [
+        "Public-test configs and generated debug bundles are kept local by default.",
+        "Server request parsing now has tighter body limits and multipart uploads disabled globally.",
+        "Security-question password reset is opt-in instead of public by default.",
+        "Crash bundles redact sensitive JSON configuration keys.",
+        "Launcher updates validate manifest URLs and managed file paths before writing or deleting files."
+      ]
+    },
+    {
+      "version": "0.3.0-public-test",
+      "date": "2026-04-24",
+      "status": "Community surface",
+      "summary": "Public website, UCP pages, admin surface, and calendar/event workflows became visible.",
+      "highlights": [
+        "Public website added account-aware sign-in, event calendar, creator contact, and legal pages.",
+        "UCP site gained account, security, character, forum badge, and support-ticket flows.",
+        "Admin panel gained staff roles, whitelist applications, moderation cases, tickets, and event management.",
+        "Discord update announcements can post repository changes to a configured channel."
+      ]
+    },
+    {
+      "version": "0.2.0-public-test",
+      "date": "2026-04-23",
+      "status": "Account bridge",
+      "summary": "UCP accounts and selected characters were connected to game login and persistent profile IDs.",
+      "highlights": [
+        "Game play sessions resolve to selected UCP characters.",
+        "Character names can be finalized from RaceMenu through the UCP API.",
+        "Duplicate account sessions are detected during login.",
+        "Disconnect and timeout announcements were added for better in-world feedback."
+      ]
+    },
+    {
+      "version": "0.1.0-public-test",
+      "date": "2026-04-20",
+      "status": "Foundation",
+      "summary": "Initial public-test helpers, launch scripts, packaging scripts, and readiness checks were introduced.",
+      "highlights": [
+        "Public-test preflight, config apply, port-opening, and background server scripts were added.",
+        "Client launcher and package publishing helpers were staged.",
+        "Crash collection and readiness documentation were started.",
+        "Local gamemode and staged server/client settings were prepared for first closed testing."
+      ]
+    }
+  ]
+}
