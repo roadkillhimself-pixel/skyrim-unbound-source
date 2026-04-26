@@ -142,7 +142,7 @@ void MyChromiumApp::Initialize(bool initChromium) noexcept
 
   CefBrowserSettings browserSettings{};
 
-  browserSettings.windowless_frame_rate = 60;
+  browserSettings.windowless_frame_rate = 120;
 
   CefWindowInfo info;
   info.SetAsWindowless(m_pRenderProvider->GetWindow());
@@ -318,5 +318,10 @@ void MyChromiumApp::RunTasks()
 void MyChromiumApp::OnBeforeCommandLineProcessing(
   const CefString& aProcessType, CefRefPtr<CefCommandLine> aCommandLine)
 {
+  aCommandLine->AppendSwitch("disable-frame-rate-limit");
+  aCommandLine->AppendSwitch("disable-gpu-vsync");
+  aCommandLine->AppendSwitch("disable-background-timer-throttling");
+  aCommandLine->AppendSwitch("disable-renderer-backgrounding");
+  aCommandLine->AppendSwitch("disable-backgrounding-occluded-windows");
 }
 }

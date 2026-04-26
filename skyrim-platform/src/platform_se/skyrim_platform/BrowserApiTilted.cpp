@@ -27,10 +27,34 @@ inline CEFUtils::MyChromiumApp& GetApp()
 Napi::Value BrowserApiTilted::SetVisible(const Napi::CallbackInfo& info)
 {
   bool& v = CEFUtils::DX11RenderHandler::Visible();
-  v = NapiHelper::ExtractBoolean(info[0], "visible");
-  if (v) {
-    GetApp().Initialize(true);
+  const bool newVisible = NapiHelper::ExtractBoolean(info[0], "visible");
+  v = newVisible;
+
+  auto overlayService = OverlayService::GetInstance();
+  if (!overlayService) {
+    return info.Env().Undefined();
   }
+
+  auto app = overlayService->GetMyChromiumApp();
+  if (!app) {
+    return info.Env().Undefined();
+  }
+
+  if (newVisible) {
+    app->Initialize(true);
+  }
+
+  if (app->IsChromiumInitialized()) {
+    auto client = app->GetClient();
+    auto browser = client ? client->GetBrowser() : nullptr;
+    if (browser) {
+      browser->GetHost()->WasHidden(!newVisible);
+      if (newVisible) {
+        browser->GetHost()->Invalidate(PET_VIEW);
+      }
+    }
+  }
+
   return info.Env().Undefined();
 }
 
