@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Draggable from 'react-draggable';
 import { ResizableBox } from 'react-resizable';
 import ChatCheckbox from './checkbox';
@@ -20,6 +20,41 @@ const MAX_HISTORY_LENGTH = 20;
 
 const SHOUTREGEXP = /№(.*?)№/gi;
 
+const getMessageSpans = (message) => {
+  let isNonRp = message.category === 'plain';
+  const result = message.text.map(({ text, color, opacity, type }, i) => {
+    if (i >= 1) {
+      isNonRp = (type.includes('nonrp') && isNonRp);
+    }
+    return <span key={`${text}_${i}`} style={{ color: `${color}`, opacity: opacity }} className={`${type.join(' ')}`}>{text}</span>;
+  });
+  return [result, isNonRp];
+};
+
+const ChatMessageList = memo(function ChatMessageList ({ fontSize, messages, chatRef, onScroll }) {
+  const chatMessages = Array.isArray(window.chatMessages)
+    ? window.chatMessages
+    : (Array.isArray(messages) ? messages : []);
+  const renderedMessages = chatMessages.slice(-60);
+
+  return (
+    <div className='chat-list' style={{ fontSize }} ref={chatRef} onScroll={onScroll}>
+      {renderedMessages.map((msg, index) => {
+        const result = getMessageSpans(msg);
+        return (
+          <div
+            className={`msg ${result[1] ? 'nonrp' : ''}`}
+            key={`msg-${chatMessages.length - renderedMessages.length + index}`}
+            style={{ marginLeft: '10px', opacity: msg.opacity }}
+          >
+            {result[0]}
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
 const Chat = (props) => {
   const [input, updateInput] = useState('');
   const [isInputFocus, changeInputFocus] = useState(false);
@@ -34,7 +69,6 @@ const Chat = (props) => {
   const placeholder = props.placeholder;
   const isInputHidden = props.isInputHidden;
   const send = props.send;
-  const [lastSendInputText, setLastSendInputText] = useState(0);
 
   const [doesIncludeShout, setIncludeShout] = useState(false);
 
@@ -54,11 +88,11 @@ const Chat = (props) => {
 
   const writtenMessage = useRef('');
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (chatRef.current) {
       window.needToScroll = (chatRef.current.scrollTop === chatRef.current.scrollHeight - chatRef.current.offsetHeight);
     }
-  };
+  }, []);
 
   const setEndOfContenteditable = (elem) => {
     const sel = window.getSelection();
@@ -159,9 +193,6 @@ const Chat = (props) => {
 
   useEffect(() => {
     if (window.needToScroll) window.scrollToLastMessage();
-    if (inputRef !== undefined && inputRef.current !== undefined) {
-      inputRef.current.focus();
-    }
   }, [props.messages]);
 
   const handleInput = (value) => {
@@ -179,33 +210,6 @@ const Chat = (props) => {
     }
   };
 
-  const getMessageSpans = (message) => {
-    let isNonRp = message.category === 'plain';
-    const result = message.text.map(({ text, color, opacity, type }, i) => {
-      if (i >= 1) {
-        isNonRp = (type.includes('nonrp') && isNonRp);
-      }
-      return <span key={`${text}_${i}`} style={{ color: `${color}`, opacity: opacity }} className={`${type.join(' ')}`}>{text}</span>;
-    });
-    return [result, isNonRp];
-  };
-
-  const getList = () => {
-    return window.chatMessages.map((msg, index) => {
-      const result = getMessageSpans(msg);
-      return (
-        <div
-          className={`msg ${result[1] ? 'nonrp' : ''}`}
-          key={`msg-${index}`}
-          style={{ marginLeft: '10px', opacity: msg.opacity }}
-        >
-          {
-            result[0]
-          }
-        </div>
-      );
-    });
-  };
   return (
     <div className='fullPage'>
       <Draggable handle='#handle' disabled={!moveChat} bounds={'.fullPage'}>
@@ -226,9 +230,12 @@ const Chat = (props) => {
               className={`list ${hideNonRP ? 'hideNonRP' : ''}`}
               id='handle'
             >
-              <div className='chat-list' style={{ fontSize }} ref={chatRef} onScroll={(e) => handleScroll()}>
-                {getList()}
-              </div>
+              <ChatMessageList
+                fontSize={fontSize}
+                messages={props.messages}
+                chatRef={chatRef}
+                onScroll={handleScroll}
+              />
             </ResizableBox>
             <div
               style={{
@@ -250,10 +257,6 @@ const Chat = (props) => {
                   placeholder={placeholder !== undefined ? placeholder : ''}
                   onChange={(value) => {
                     handleInput(value);
-                    if (lastSendInputText + 1000 < Date.now()) {
-                      window.skyrimPlatform.sendMessage('onInput');
-                      setLastSendInputText(Date.now());
-                    }
                   }}
                   onFocus={(e) => changeInputFocus(true)}
                   onBlur={(e) => changeInputFocus(false)}

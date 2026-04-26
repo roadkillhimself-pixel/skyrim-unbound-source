@@ -555,7 +555,8 @@ export class FormView {
       }
     }
 
-    if (FormView.isDisplayingNicknames && this.refrId && model.appearance?.name) {
+    const nicknameText = this.getNicknameText(refr, model);
+    if (FormView.isDisplayingNicknames && this.refrId && nicknameText) {
       const headPart = "NPC Head [Head]";
       const playerActor = Game.getPlayer()!;
       const isOwnerActor = playerActor.getFormID() === refr.getFormID();
@@ -563,17 +564,46 @@ export class FormView {
         && (isOwnerActor || (playerActor.getDistance(refr) <= maxNicknameDrawDistance
           && playerActor.hasLOS(refr)));
       if (isVisibleByPlayer) {
-        const headScreenPos = worldPointToScreenPoint([
-          NetImmerse.getNodeWorldPositionX(refr, headPart, false),
-          NetImmerse.getNodeWorldPositionY(refr, headPart, false),
-          NetImmerse.getNodeWorldPositionZ(refr, headPart, false) + nicknameHeightOffset
-        ])[0];
+        const worldPoint = (() => {
+          try {
+            return [
+              NetImmerse.getNodeWorldPositionX(refr, headPart, false),
+              NetImmerse.getNodeWorldPositionY(refr, headPart, false),
+              NetImmerse.getNodeWorldPositionZ(refr, headPart, false) + nicknameHeightOffset
+            ];
+          } catch (e) {
+            return [
+              refr.getPositionX(),
+              refr.getPositionY(),
+              refr.getPositionZ() + 105
+            ];
+          }
+        })();
+        let headScreenPos: [number, number, number] | null = null;
+        try {
+          const projected = worldPointToScreenPoint(worldPoint);
+          if (Array.isArray(projected) && projected.length > 0) {
+            const firstPoint = projected[0] as number[] | undefined;
+            if (firstPoint && firstPoint.length >= 3) {
+              headScreenPos = [Number(firstPoint[0]), Number(firstPoint[1]), Number(firstPoint[2])];
+            }
+          }
+        } catch (e) {
+        }
+
+        if (!headScreenPos
+          || !isFinite(headScreenPos[0])
+          || !isFinite(headScreenPos[1])
+          || !isFinite(headScreenPos[2])) {
+          this.removeNickname();
+          return;
+        }
         const resolution = getScreenResolution();
         const textXPos = Math.round(headScreenPos[0] * resolution.width);
         const textYPos = Math.round((1 - headScreenPos[1]) * resolution.height);
 
         if (!this.textNameId && headScreenPos[2] > 0) {
-          this.textNameId = createText(textXPos, textYPos, refr.getDisplayName(), nicknameFontColor, nicknameFontName);
+          this.textNameId = createText(textXPos, textYPos, nicknameText, nicknameFontColor, nicknameFontName);
           setTextFont(this.textNameId, nicknameFontName);
           setTextSize(this.textNameId, nicknameFontSize);
           SpApiInteractor.getControllerInstance().emitter.emit("nicknameCreate", {
@@ -586,7 +616,7 @@ export class FormView {
             this.removeNickname();
           }
           if (this.textNameId) {
-            setTextString(this.textNameId, refr.getDisplayName());
+            setTextString(this.textNameId, nicknameText);
             setTextPos(this.textNameId, textXPos, textYPos);
           }
         }
@@ -605,6 +635,35 @@ export class FormView {
     }
     const keyword = Keyword.getKeyword('SweetHidePerson');
     return actor.wornHasKeyword(keyword);
+  }
+
+  private getNicknameText(refr: ObjectReference, model: FormModel): string {
+    try {
+      const displayName = `${refr.getDisplayName() || ""}`.trim();
+      if (displayName && !this.shouldSuppressNicknameText(refr, displayName)) {
+        return displayName;
+      }
+    } catch (e) {
+    }
+
+    const appearanceName = `${model.appearance?.name || ""}`.trim();
+    return this.shouldSuppressNicknameText(refr, appearanceName) ? "" : appearanceName;
+  }
+
+  private shouldSuppressNicknameText(refr: ObjectReference, text: string): boolean {
+    const normalized = `${text || ""}`.trim().toLowerCase();
+    if (!/\bdoor\b/.test(normalized)) {
+      return false;
+    }
+
+    try {
+      if (Actor.from(refr)) {
+        return false;
+      }
+    } catch (e) {
+    }
+
+    return true;
   }
 
   private removeNickname() {

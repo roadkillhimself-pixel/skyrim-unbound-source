@@ -64,18 +64,7 @@
         max-width: 100%;
         overflow-wrap: break-word;
         white-space: pre-wrap;
-        text-shadow: -0 -2px 0 rgba(0, 0, 0, 0.63), 0 -2px 0 rgba(0, 0, 0, 0.63),
-          -0 2px 0 rgba(0, 0, 0, 0.63), 0 2px 0 rgba(0, 0, 0, 0.63),
-          -2px -0 0 rgba(0, 0, 0, 0.63), 2px -0 0 rgba(0, 0, 0, 0.63),
-          -2px 0 0 rgba(0, 0, 0, 0.63), 2px 0 0 rgba(0, 0, 0, 0.63),
-          -1px -2px 0 rgba(0, 0, 0, 0.63), 1px -2px 0 rgba(0, 0, 0, 0.63),
-          -1px 2px 0 rgba(0, 0, 0, 0.63), 1px 2px 0 rgba(0, 0, 0, 0.63),
-          -2px -1px 0 rgba(0, 0, 0, 0.63), 2px -1px 0 rgba(0, 0, 0, 0.63),
-          -2px 1px 0 rgba(0, 0, 0, 0.63), 2px 1px 0 rgba(0, 0, 0, 0.63),
-          -2px -2px 0 rgba(0, 0, 0, 0.63), 2px -2px 0 rgba(0, 0, 0, 0.63),
-          -2px 2px 0 rgba(0, 0, 0, 0.63), 2px 2px 0 rgba(0, 0, 0, 0.63),
-          -2px -2px 0 rgba(0, 0, 0, 0.63), 2px -2px 0 rgba(0, 0, 0, 0.63),
-          -2px 2px 0 rgba(0, 0, 0, 0.63), 2px 2px 0 rgba(0, 0, 0, 0.63);
+        text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.85);
         color: #fafafa;
         &.default {
           color: #fafafa;
@@ -117,18 +106,7 @@
       opacity: 0.68;
       font-weight: bold;
       letter-spacing: 1px;
-      text-shadow: -0 -2px 0 rgba(0, 0, 0, 0.63), 0 -2px 0 rgba(0, 0, 0, 0.63),
-        -0 2px 0 rgba(0, 0, 0, 0.63), 0 2px 0 rgba(0, 0, 0, 0.63),
-        -2px -0 0 rgba(0, 0, 0, 0.63), 2px -0 0 rgba(0, 0, 0, 0.63),
-        -2px 0 0 rgba(0, 0, 0, 0.63), 2px 0 0 rgba(0, 0, 0, 0.63),
-        -1px -2px 0 rgba(0, 0, 0, 0.63), 1px -2px 0 rgba(0, 0, 0, 0.63),
-        -1px 2px 0 rgba(0, 0, 0, 0.63), 1px 2px 0 rgba(0, 0, 0, 0.63),
-        -2px -1px 0 rgba(0, 0, 0, 0.63), 2px -1px 0 rgba(0, 0, 0, 0.63),
-        -2px 1px 0 rgba(0, 0, 0, 0.63), 2px 1px 0 rgba(0, 0, 0, 0.63),
-        -2px -2px 0 rgba(0, 0, 0, 0.63), 2px -2px 0 rgba(0, 0, 0, 0.63),
-        -2px 2px 0 rgba(0, 0, 0, 0.63), 2px 2px 0 rgba(0, 0, 0, 0.63),
-        -2px -2px 0 rgba(0, 0, 0, 0.63), 2px -2px 0 rgba(0, 0, 0, 0.63),
-        -2px 2px 0 rgba(0, 0, 0, 0.63), 2px 2px 0 rgba(0, 0, 0, 0.63);
+      text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.85);
       color: #fafafa;
       &.limit {
         color: #F78C8C;

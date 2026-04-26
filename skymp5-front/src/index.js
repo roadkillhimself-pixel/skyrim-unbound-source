@@ -31,7 +31,11 @@ ReactDOM.render(
 // Called from skymp5-functions-lib, chatProperty.ts
 window.scrollToLastMessage = () => {
   const _list = document.querySelector('#chat > .chat-main > .list > .chat-list');
-  if (_list != null && window.needToScroll) { _list.scrollTop = _list.offsetHeight * _list.offsetHeight; }
+  if (_list != null && window.needToScroll) {
+    window.requestAnimationFrame(() => {
+      _list.scrollTop = _list.scrollHeight;
+    });
+  }
 };
 
 window.playSound = (name) => {
