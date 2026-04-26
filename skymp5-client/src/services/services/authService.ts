@@ -40,6 +40,9 @@ const events = {
   ucpExitGame: 'ucpExitGame'
 };
 
+const changeCharacterCustomPacketType = "changeCharacterSelection";
+const gracefulDisconnectCustomPacketType = "gracefulDisconnect";
+
 // Vaiables used on both client and browser side (see browsersideWidgetSetter)
 let browserState = {
   comment: '',
@@ -186,6 +189,11 @@ export class AuthService extends ClientListener {
     logTrace(this, `Received browserWindowLoaded event`);
     this.recordAuthUiDebug("browserWindowLoaded");
 
+    if (this.pendingCharacterSelectionOpen) {
+      this.showCharacterSelectionAfterChange("browserWindowLoaded", true);
+      return;
+    }
+
     const hadBrowserWindowLoaded = this.trigger.browserWindowLoadedFired;
     this.trigger.browserWindowLoadedFired = true;
     if (!this.controller.lookupListener(NetworkingService).isConnected()) {
@@ -257,6 +265,9 @@ export class AuthService extends ClientListener {
       //   logTrace(this, 'loginRequired received');
       //   this.loginWithSkympIoCredentials();
       //   break;
+      case changeCharacterCustomPacketType:
+        this.handleChangeCharacterSelectionRequest();
+        break;
       case 'loginFailedNotLoggedViaDiscord':
         this.authAttemptProgressIndicator = false;
         this.controller.lookupListener(NetworkingService).close();
@@ -408,18 +419,25 @@ export class AuthService extends ClientListener {
 
   private onBrowserMessage(e: BrowserMessageEvent) {
     if (!this.isListenBrowserMessage()) {
-      logTrace(this, `onBrowserMessage: isListenBrowserMessage was false, ignoring message`, JSON.stringify(e.arguments));
       return;
     }
 
     const settingsService = this.controller.lookupListener(SettingsService);
+    const eventKey = e.arguments[0];
+
+    // Chat events belong to BrowserService and must not be handled here.
+    if (eventKey === "rpChatSubmit" ||
+      eventKey === "rpChatTyping" ||
+      eventKey === "rpChatClose" ||
+      eventKey === "rpChatDebugState") {
+      return;
+    }
 
     logTrace(this, `onBrowserMessage:`, JSON.stringify(e.arguments));
     this.recordAuthUiDebug("browserMessage", {
-      eventKey: `${e.arguments[0] || ""}`,
+      eventKey: `${eventKey || ""}`,
     });
 
-    const eventKey = e.arguments[0];
     if (eventKey === this.frontLoadedEventKey) {
       this.trigger.frontLoadedFired = true;
       if (!this.controller.lookupListener(NetworkingService).isConnected()) {
@@ -513,6 +531,118 @@ export class AuthService extends ClientListener {
       default:
         break;
     }
+  }
+
+  private getRemoteAuthDataForCharacterSelection(): RemoteAuthGameData | null {
+    const storedAuthData = this.sp.storage[authGameDataStorageKey] as AuthGameData | undefined;
+    return authData || storedAuthData?.remote || null;
+  }
+
+  private sendGracefulDisconnectPacket() {
+    try {
+      if (!this.controller.lookupListener(NetworkingService).isConnected()) {
+        return;
+      }
+
+      const message: CustomPacketMessage = {
+        t: MsgType.CustomPacket,
+        contentJsonDump: JSON.stringify({
+          customPacketType: gracefulDisconnectCustomPacketType,
+        }),
+      };
+
+      this.controller.emitter.emit("sendMessage", {
+        message,
+        reliability: "reliable",
+      });
+    } catch (error) {
+      this.recordAuthUiDebug("changeCharacterGracefulDisconnectError", {
+        error: `${error}`,
+      });
+    }
+  }
+
+  private handleChangeCharacterSelectionRequest() {
+    const remoteAuthData = this.getRemoteAuthDataForCharacterSelection();
+
+    if (remoteAuthData?.session) {
+      const nextAuthData: RemoteAuthGameData = {
+        ...remoteAuthData,
+        playSession: null,
+        selectedCharacterId: null,
+        selectedCharacterName: null,
+      };
+      authData = nextAuthData;
+    } else {
+      authData = null;
+    }
+
+    this.sp.storage[authGameDataStorageKey] = undefined as unknown as AuthGameData;
+    this.pendingCharacterSelectionOpen = true;
+    this.authAttemptProgressIndicator = false;
+    this.authAttemptProgressIndicatorCounter = 0;
+    this.loggingStartMoment = 0;
+    browserState.comment = "";
+    browserState.loginFailedReason = "";
+
+    this.sendGracefulDisconnectPacket();
+    try {
+      this.controller.lookupListener(NetworkingService).close();
+    } catch (error) {
+      this.recordAuthUiDebug("changeCharacterNetworkCloseError", {
+        error: `${error}`,
+      });
+    }
+
+    this.setListenBrowserMessage(true, "changeCharacterSelection packet");
+    this.sp.browser.setVisible(true);
+    this.sp.browser.setFocused(true);
+    this.ensureAuthBrowserPageLoaded("changeCharacterSelection");
+
+    setTimeout(() => {
+      if (this.pendingCharacterSelectionOpen) {
+        this.showCharacterSelectionAfterChange("changeCharacterSelectionFallback", false);
+      }
+    }, 450);
+  }
+
+  private showCharacterSelectionAfterChange(source: string, browserLoaded: boolean) {
+    if (browserLoaded) {
+      this.pendingCharacterSelectionOpen = false;
+    }
+    this.authUiBootedAt = Date.now();
+    this.cancelPendingAuthUiRefreshes(source);
+    this.setListenBrowserMessage(true, `${source} character selection`);
+    this.trigger.authNeededFired = true;
+    this.trigger.browserWindowLoadedFired = true;
+    this.trigger.frontLoadedFired = true;
+    this.onlineAuthBootstrapPending = false;
+    this.onlineAuthUiMounted = true;
+    this.authDialogOpen = false;
+    this.authAttemptProgressIndicator = false;
+    this.authAttemptProgressIndicatorCounter = 0;
+    this.loggingStartMoment = 0;
+    this.ucpUiState.loading = false;
+    this.ucpUiState.error = "";
+    this.ucpUiState.info = authData?.session
+      ? "Choose a character and press Play."
+      : "Session expired. Sign in again.";
+    this.ucpUiState.selectedCharacterId = null;
+    if (!authData?.session) {
+      this.ucpUiState.characters = [];
+    }
+
+    this.sp.browser.setVisible(true);
+    this.sp.browser.setFocused(true);
+    this.refreshWidgets();
+
+    if (authData?.session) {
+      this.refreshUcpSessionState();
+    }
+
+    this.controller.once("update", () => {
+      this.sp.Game.disablePlayerControls(true, true, true, true, true, true, true, true, 0);
+    });
   }
 
   private createPlaySession(token: string, callback: (res: string, err: string) => void) {
@@ -1062,6 +1192,7 @@ export class AuthService extends ClientListener {
   }
 
   private handleUcpPlay(rawPayload: string) {
+    this.pendingCharacterSelectionOpen = false;
     const payload = this.parseBrowserPayload(rawPayload);
     const characterId = Number(payload.characterId ?? this.ucpUiState.selectedCharacterId);
 
@@ -1307,10 +1438,7 @@ export class AuthService extends ClientListener {
           </label>
           <button id="skw-auth-remember" type="button" data-remember="${rememberLogin ? "1" : "0"}" style="min-height:48px; display:flex; align-items:center; gap:13px; padding:0 14px; border-radius:14px; border:1px solid ${rememberLogin ? "rgba(198,154,98,0.54)" : "rgba(198,154,98,0.18)"}; background:${rememberLogin ? "rgba(114,78,43,0.26)" : "rgba(255,255,255,0.035)"}; color:#f1e6d3; font:inherit; font-size:16px; cursor:pointer; text-align:left;">
             <span data-checkmark="1" style="width:26px; height:26px; flex:0 0 26px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; border:1px solid ${rememberLogin ? "rgba(232,190,126,0.88)" : "rgba(198,154,98,0.34)"}; background:${rememberLogin ? "linear-gradient(180deg,#c9985b,#76502d)" : "rgba(5,4,6,0.9)"}; color:#fff2df; font-size:20px; line-height:1; box-shadow:${rememberLogin ? "0 0 0 3px rgba(180,135,83,0.14)" : "none"};">${rememberLogin ? "✓" : ""}</span>
-            <span style="display:grid; gap:2px;">
-              <span style="font-size:16px; font-weight:700;">Remember me</span>
-              <span style="font-size:12px; color:#b5a692;">Only saves your username</span>
-            </span>
+            <span style="font-size:16px; font-weight:700;">Remember me</span>
           </button>
           <div style="display:flex; gap:10px; margin-top:4px;">
             <button type="submit" ${state.loading ? "disabled" : ""} style="flex:1 1 auto; min-height:50px; padding:0 18px; border:0; border-radius:14px; background:linear-gradient(180deg,#b48753,#6d4828); color:#fff2df; font:inherit; font-size:16px; font-weight:700; cursor:pointer;">${state.loading ? "Signing in..." : "Log in"}</button>
@@ -2245,6 +2373,7 @@ export class AuthService extends ClientListener {
   private onlineAuthBootstrapPending = false;
   private onlineAuthBootstrapGeneration = 0;
   private onlineAuthUiMounted = false;
+  private pendingCharacterSelectionOpen = false;
   private authUiBootedAt = 0;
   private authUiRefreshGeneration = 0;
   private inFlightUcpSessionRefresh: string | null = null;

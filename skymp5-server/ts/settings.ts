@@ -274,7 +274,7 @@ async function getCommitHashFromRef(octokit: Octokit, owner: string, repo: strin
 async function fetchServerSettings(): Promise<any> {
   // Load server-settings.json
   const settingsPath = 'server-settings.json';
-  const rawSettings = fs.readFileSync(settingsPath, 'utf8');
+  const rawSettings = fs.readFileSync(settingsPath, 'utf8').replace(/^\uFEFF/, '');
   let serverSettingsFile = JSON.parse(rawSettings);
 
   let serverSettings: Record<string, unknown> = {};

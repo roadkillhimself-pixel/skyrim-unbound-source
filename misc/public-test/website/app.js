@@ -180,8 +180,9 @@
 
   function normalizeLanguageSelection(value) {
     const normalizedValue = String(value || "").trim().toLowerCase();
-    return LANGUAGE_OPTIONS.some((option) => option.value === normalizedValue)
-      ? normalizedValue
+    const migratedValue = normalizedValue === "ge" ? "de" : normalizedValue;
+    return LANGUAGE_OPTIONS.some((option) => option.value === migratedValue)
+      ? migratedValue
       : LANGUAGE_OPTIONS[0].value;
   }
 
@@ -294,21 +295,11 @@
           <rect x="21.33" width="21.34" height="64" fill="#ffffff"/>
           <rect x="42.67" width="21.33" height="64" fill="#d81e34"/>
         `);
-      case "ge":
+      case "de":
         return renderFlagSvg(`
-          <rect width="64" height="64" fill="#ffffff"/>
-          <rect x="26" width="12" height="64" fill="#d61f2c"/>
-          <rect y="26" width="64" height="12" fill="#d61f2c"/>
-          <g fill="#d61f2c">
-            <rect x="11" y="8" width="4" height="12"/>
-            <rect x="7" y="12" width="12" height="4"/>
-            <rect x="49" y="8" width="4" height="12"/>
-            <rect x="45" y="12" width="12" height="4"/>
-            <rect x="11" y="44" width="4" height="12"/>
-            <rect x="7" y="48" width="12" height="4"/>
-            <rect x="49" y="44" width="4" height="12"/>
-            <rect x="45" y="48" width="12" height="4"/>
-          </g>
+          <rect width="64" height="21.33" fill="#111111"/>
+          <rect y="21.33" width="64" height="21.34" fill="#dd0000"/>
+          <rect y="42.67" width="64" height="21.33" fill="#ffce00"/>
         `);
       case "tr":
         return renderFlagSvg(`
@@ -317,43 +308,12 @@
           <circle cx="31" cy="32" r="11" fill="#e01f26"/>
           <polygon points="${getStarPoints(40.5, 32, 6.5, 2.7)}" fill="#ffffff"/>
         `);
-      case "kr":
-        return renderFlagSvg(`
-          <rect width="64" height="64" fill="#ffffff"/>
-          <path d="M32 19a13 13 0 0 1 0 26c-7.18 0-13-5.82-13-13a13 13 0 0 1 13-13Z" fill="#d91f34"/>
-          <path d="M32 45a13 13 0 0 1 0-26c7.18 0 13 5.82 13 13a13 13 0 0 1-13 13Z" fill="#12479b"/>
-          <path d="M32 25a6.5 6.5 0 0 1 0 13 6.5 6.5 0 0 1 0-13Z" fill="#12479b"/>
-          <path d="M32 26a6 6 0 0 1 0 12 6 6 0 0 1 0-12Z" fill="#d91f34"/>
-          <g fill="#101214">
-            <rect x="9" y="12" width="13" height="3" rx="1.5" transform="rotate(-28 15.5 13.5)"/>
-            <rect x="7" y="17" width="13" height="3" rx="1.5" transform="rotate(-28 13.5 18.5)"/>
-            <rect x="5" y="22" width="13" height="3" rx="1.5" transform="rotate(-28 11.5 23.5)"/>
-            <rect x="44" y="39" width="13" height="3" rx="1.5" transform="rotate(-28 50.5 40.5)"/>
-            <rect x="46" y="44" width="13" height="3" rx="1.5" transform="rotate(-28 52.5 45.5)"/>
-            <rect x="48" y="49" width="13" height="3" rx="1.5" transform="rotate(-28 54.5 50.5)"/>
-            <rect x="44" y="14" width="13" height="3" rx="1.5" transform="rotate(28 50.5 15.5)"/>
-            <rect x="48" y="24" width="13" height="3" rx="1.5" transform="rotate(28 54.5 25.5)"/>
-            <rect x="46" y="19" width="5" height="3" rx="1.5" transform="rotate(28 48.5 20.5)"/>
-            <rect x="7" y="44" width="13" height="3" rx="1.5" transform="rotate(28 13.5 45.5)"/>
-            <rect x="11" y="54" width="13" height="3" rx="1.5" transform="rotate(28 17.5 55.5)"/>
-            <rect x="9" y="49" width="5" height="3" rx="1.5" transform="rotate(28 11.5 50.5)"/>
-          </g>
-        `);
       case "es":
         return renderFlagSvg(`
           <rect width="64" height="64" fill="#c61f2a"/>
           <rect y="16" width="64" height="32" fill="#f0bf2f"/>
           <rect x="16" y="24" width="7" height="16" rx="2" fill="#aa1f2d"/>
           <rect x="23" y="27" width="4" height="10" rx="1.5" fill="#d9a41f"/>
-        `);
-      case "cn":
-        return renderFlagSvg(`
-          <rect width="64" height="64" fill="#de2910"/>
-          <polygon points="${getStarPoints(18, 18, 8, 3.4)}" fill="#ffde00"/>
-          <polygon points="${getStarPoints(31, 10, 3.2, 1.35, -65)}" fill="#ffde00"/>
-          <polygon points="${getStarPoints(38, 17, 3.2, 1.35, -35)}" fill="#ffde00"/>
-          <polygon points="${getStarPoints(38, 28, 3.2, 1.35, -5)}" fill="#ffde00"/>
-          <polygon points="${getStarPoints(30, 35, 3.2, 1.35, 20)}" fill="#ffde00"/>
         `);
       case "ru":
         return renderFlagSvg(`
@@ -406,7 +366,8 @@
   function formatMetricCount(value) {
     const number = Number(value);
     if (!Number.isFinite(number) || number < 0) {
-      return "Live";
+      const discordCopy = (getTranslationValue("community.cards") || [])[0] || {};
+      return discordCopy.stats?.[0]?.value || "Live";
     }
 
     return new Intl.NumberFormat(getCurrentLocaleTag(), {
@@ -417,17 +378,15 @@
   function applyCommunityRuntimeState() {
     const forumCard = document.querySelector('[data-community-card="forum"]');
     if (forumCard) {
+      const forumCopy = (getTranslationValue("community.cards") || [])[1] || {};
       const cta = forumCard.querySelector(".community-showcase__cta");
-      setTextContent(
-        forumCard.querySelector(".community-showcase__body p"),
-        "The official forum is being prepared. Discord is the live community hub for now.",
-      );
+      setInnerHtml(forumCard.querySelector(".community-showcase__body p"), forumCopy.bodyHtml || "");
       if (cta) {
         cta.setAttribute("href", "#community");
         cta.setAttribute("aria-disabled", "true");
         cta.setAttribute("tabindex", "-1");
         cta.classList.add("community-showcase__cta--disabled");
-        rebuildCommunityCta(cta, "Coming Soon");
+        rebuildCommunityCta(cta, forumCopy.cta || "");
       }
 
     }
@@ -478,7 +437,8 @@
         renderDiscordMetrics();
       }
     } catch (_error) {
-      setTextContent(discordCard.querySelector("[data-discord-member-copy]"), "Live");
+      const discordCopy = (getTranslationValue("community.cards") || [])[0] || {};
+      setTextContent(discordCard.querySelector("[data-discord-member-copy]"), discordCopy.stats?.[0]?.value || "Live");
     }
   }
 
@@ -528,7 +488,6 @@
     setTextContent(document.querySelector(".topbar__actions .button--install > span:first-child"), t("account.install"));
 
     setTextContent(document.querySelector(".hero__title"), t("hero.title"));
-    setTextContent(document.querySelector(".hero__lede"), t("hero.lede"));
     setTextContent(heroButtons[0], t("hero.createAccount"));
     rebuildButtonWithIcon(heroButtons[1], t("hero.joinDiscord"));
     setTextContent(document.querySelector(".hero__calendar-eyebrow"), t("hero.calendarEyebrow"));
@@ -2469,7 +2428,7 @@
 
       const updatedEvent = result?.event || null;
       if (!updatedEvent) {
-        throw new Error("The event response was incomplete");
+        throw new Error(t("calendar.messages.interestError"));
       }
 
       calendarState.events = calendarState.events.map((entry) =>

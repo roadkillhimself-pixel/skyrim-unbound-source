@@ -979,14 +979,6 @@ select {
     0 0 22px rgba(114, 218, 248, 0.1);
 }
 
-.hero__lede {
-  max-width: 720px;
-  margin: 0;
-  color: var(--muted);
-  font-size: clamp(1rem, 1.3vw, 1.18rem);
-  line-height: 1.7;
-}
-
 .hero__actions {
   display: flex;
   flex-wrap: wrap;

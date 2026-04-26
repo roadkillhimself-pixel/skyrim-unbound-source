@@ -2,7 +2,12 @@ import { System, Log, Content, SystemContext } from "./system";
 import { Settings } from "../settings";
 import * as fetchRetry from "fetch-retry";
 import { loginsCounter, loginErrorsCounter } from "./metricsSystem";
-import { resolveUcpPlaySession } from "../ucp";
+import {
+  beginUcpCharacterPlaytime,
+  finishUcpCharacterPlaytime,
+  resolveUcpPlaySession,
+} from "../ucp";
+import type { ResolvedUcpPlaySession } from "../ucp";
 
 const INVALID_USER_ID = 65535;
 const loginFailedNotInTheDiscordServer = JSON.stringify({ customPacketType: "loginFailedNotInTheDiscordServer" });
@@ -144,6 +149,7 @@ export class Login implements System {
         if (!this.registerAccountSession(userId, `ucp-account:${localPlaySession.accountId}`, ctx)) {
           return;
         }
+        this.beginUcpPlaytimeForUser(userId, localPlaySession);
         this.emit(ctx, "spawnAllowed", userId, localPlaySession.profileId, [], undefined);
         loginsCounter.inc();
         this.log(`${userId} logged as ${localPlaySession.profileId} via UCP character ${localPlaySession.characterId}`);
@@ -439,6 +445,8 @@ export class Login implements System {
   }
 
   private clearAccountSessionForUser(userId: number): void {
+    this.finishUcpPlaytimeForUser(userId);
+
     const accountKey = this.accountKeyByUserId.get(userId);
     if (!accountKey) {
       return;
@@ -457,10 +465,38 @@ export class Login implements System {
     }
   }
 
+  private beginUcpPlaytimeForUser(userId: number, playSession: ResolvedUcpPlaySession): void {
+    try {
+      beginUcpCharacterPlaytime(this.settingsObject, playSession.accountId, playSession.characterId);
+      this.ucpPlaytimeByUserId.set(userId, {
+        accountId: playSession.accountId,
+        characterId: playSession.characterId,
+      });
+    } catch (err) {
+      console.error(`Failed to begin UCP playtime tracking for userId ${userId}:`, err);
+    }
+  }
+
+  private finishUcpPlaytimeForUser(userId: number): void {
+    const playtime = this.ucpPlaytimeByUserId.get(userId);
+    if (!playtime) {
+      return;
+    }
+
+    this.ucpPlaytimeByUserId.delete(userId);
+
+    try {
+      finishUcpCharacterPlaytime(this.settingsObject, playtime.accountId, playtime.characterId);
+    } catch (err) {
+      console.error(`Failed to finish UCP playtime tracking for userId ${userId}:`, err);
+    }
+  }
+
   private gracefulDisconnectUserIds = new Set<number>();
   private disconnectAnnouncementSeq = 0;
   private accountKeyByUserId = new Map<number, string>();
   private accountSessionsByKey = new Map<string, Set<number>>();
+  private ucpPlaytimeByUserId = new Map<number, { accountId: number; characterId: number }>();
   private settingsObject: Settings;
   private fetchRetry = fetchRetry.default(global.fetch);
 }

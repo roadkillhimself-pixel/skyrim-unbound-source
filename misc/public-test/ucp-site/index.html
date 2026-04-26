@@ -4,21 +4,64 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Skyrim Unbound UCP</title>
-    <link rel="stylesheet" href="./app.css?v=skyrim-ucp-community-20260424-4" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./app.css?v=skyrim-ucp-monthly-playtime-20260427-1" />
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
-        <div class="topbar__copy">
-          <p class="topbar__eyebrow">Skyrim Unbound</p>
-          <h1 id="serverName">Unified Control Panel</h1>
-          <div class="topbar__meta">
+        <div class="topbar__copy topbar__copy--logo">
+          <div class="topbar__ucp-logo" aria-hidden="true">
+            <span class="topbar__ucp-word">Skyrim Unbound</span>
+            <span class="topbar__ucp-divider">
+              <span></span>
+              <span></span>
+            </span>
+            <span class="topbar__ucp-tag">UCP</span>
+          </div>
+          <h1 class="topbar__sr-title" id="serverName">Unified Control Panel</h1>
+          <div class="topbar__meta topbar__meta--logo">
             <span class="status-pill" id="serverHealthPill">Checking backend...</span>
-            <span id="serverStatus">Checking backend health...</span>
+            <span id="serverStatus"></span>
           </div>
         </div>
 
+        <div class="topbar__stats" id="topbarStats" aria-label="Server statistics"></div>
+
         <div class="topbar__actions">
+          <button
+            class="notification-button"
+            id="notificationButton"
+            type="button"
+            aria-label="Notifications"
+            aria-controls="notificationTray"
+            aria-expanded="false"
+            title="Notifications"
+          >
+            <span class="notification-button__disc" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 21.2a2.5 2.5 0 0 0 2.4-1.8H9.6a2.5 2.5 0 0 0 2.4 1.8Z" fill="currentColor" />
+                <path d="M5.1 17.8h13.8c.4 0 .7-.3.7-.7 0-.2-.1-.4-.2-.5l-1.7-2.1V10a5.7 5.7 0 0 0-4.2-5.5 1.6 1.6 0 0 0-3 0A5.7 5.7 0 0 0 6.3 10v4.5l-1.7 2.1a.8.8 0 0 0-.2.5c0 .4.3.7.7.7Z" fill="currentColor" />
+              </svg>
+            </span>
+            <span class="notification-button__badge hidden" id="notificationCount">0</span>
+          </button>
+          <div class="notification-tray hidden" id="notificationTray" role="dialog" aria-label="Notifications">
+            <div class="notification-tray__header">
+              <div>
+                <div class="notification-tray__eyebrow">UCP</div>
+                <div class="notification-tray__title">Notifications</div>
+              </div>
+            </div>
+            <div class="notification-list" id="notificationList"></div>
+            <div class="notification-sources" id="notificationSources"></div>
+          </div>
+          <a class="button button--ghost button--home" href="/">&larr; Back to Homepage</a>
           <a class="button button--ghost" href="/launcher/index.html">Launcher</a>
           <a class="button button--ghost" href="/launcher/skyrim-unbound-client-package.zip">Package</a>
           <button class="button button--ghost hidden" id="adminPanelButton" type="button">Admin panel</button>
@@ -106,7 +149,7 @@
                       <input name="login" type="text" autocomplete="username" required />
                     </label>
                     <div class="form-actions">
-                      <button class="button button--primary" type="submit">Load recovery questions</button>
+                      <button class="button button--primary" type="submit">Load recovery question</button>
                     </div>
                   </form>
 
@@ -121,7 +164,7 @@
                       <input name="confirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" required />
                     </label>
                     <div class="form-actions">
-                      <button class="button button--primary" type="submit">Submit recovery answers</button>
+                      <button class="button button--primary" type="submit">Submit recovery answer</button>
                     </div>
                   </form>
                 </section>
@@ -202,8 +245,8 @@
             <section class="tab-panel" data-tab-panel="profile">
               <div class="workspace__header">
                 <div>
-                  <h2>Profile</h2>
-                  <p class="workspace__subtitle">Identity, badges, and persistent character roster.</p>
+                  <h2 id="profileTitle">Profile</h2>
+                  <p class="workspace__subtitle" id="profileSubtitle">Identity, badges, and persistent character roster.</p>
                 </div>
               </div>
               <div class="panel-stack" id="profilePanel"></div>
@@ -233,7 +276,7 @@
               <div class="workspace__header">
                 <div>
                   <h2>Security</h2>
-                  <p class="workspace__subtitle">Sessions, recovery questions, new-IP OTP, email recovery, and authenticator-based 2FA.</p>
+                  <p class="workspace__subtitle">Sessions, recovery question, new-IP OTP, email recovery, and authenticator-based 2FA.</p>
                 </div>
               </div>
               <div class="panel-stack" id="securityPanel"></div>
@@ -279,6 +322,9 @@
       </section>
     </main>
 
-    <script src="./app.js?v=skyrim-ucp-community-20260425-1"></script>
+    <script>
+      window.__SKYRIM_UCP_ASSET_VERSION__ = "skyrim-ucp-real-chart-20260427-7";
+    </script>
+    <script src="./app.js?v=skyrim-ucp-monthly-playtime-20260427-1"></script>
   </body>
 </html>

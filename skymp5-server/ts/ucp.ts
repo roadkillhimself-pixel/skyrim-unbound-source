@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, SupportedValueType } from "node:sqlite";
 import nodemailer from "nodemailer";
 import { Settings } from "./settings";
 import { ADMIN_PANEL_ACCESS_COOKIE_NAME } from "./admin";
@@ -43,6 +43,29 @@ type TurnstileValidationResponse = {
   hostname?: string;
   action?: string;
   "error-codes"?: string[];
+};
+
+type DiscordInviteLinkConfig = {
+  mode: "invite";
+  url: string;
+};
+
+type DiscordOAuthLinkConfig = {
+  mode: "oauth";
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  scope: string;
+  prompt: string | null;
+};
+
+type DiscordLinkConfig = DiscordInviteLinkConfig | DiscordOAuthLinkConfig;
+
+type DiscordOAuthUser = {
+  id?: string;
+  username?: string;
+  discriminator?: string;
+  global_name?: string;
 };
 
 const FALLBACK_COMMUNITY_EVENT_TIME_ZONE = "UTC";
@@ -95,6 +118,129 @@ const getTimeZoneOffsetMinutesForDate = (dateRaw: string | Date, timeZone: strin
   return Math.round((date.getTime() - zonedUtcMillis) / 60000);
 };
 
+const SERVER_RECORD_STANDING_MONTHS = 3;
+const CHATLOG_DEFAULT_WINDOW_DAYS = 7;
+const CHATLOG_MAX_DOWNLOAD_ROWS = 50000;
+const EMPTY_CHARACTER_MONTHLY_ACTIVITY = Object.freeze([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+
+const shiftDateByUtcMonths = (dateRaw: Date, monthDelta: number) => {
+  const date = new Date(dateRaw.getTime());
+  const targetDay = date.getUTCDate();
+  date.setUTCDate(1);
+  date.setUTCMonth(date.getUTCMonth() + monthDelta);
+
+  const daysInTargetMonth = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth() + 1,
+    0
+  )).getUTCDate();
+  date.setUTCDate(Math.min(targetDay, daysInTargetMonth));
+  return date;
+};
+
+const isServerRecordBanKind = (kind: string) => kind === "TEMP_BAN" || kind === "PERM_BAN";
+const isBadStandingWindow = (jails: number, bans: number) => bans > 1 || jails > (bans > 0 ? 2 : 3);
+
+type ChatLogRangeInput = {
+  month?: unknown;
+  day?: unknown;
+  tzOffsetMinutes?: unknown;
+};
+
+type ChatLogDateRange = {
+  startIso: string;
+  endIso: string;
+  month: string;
+  day: string;
+  label: string;
+  mode: "recent" | "month" | "day";
+  windowDays: number;
+};
+
+const parseChatLogTimezoneOffset = (value: unknown) => {
+  const offset = Number(value);
+  return Number.isFinite(offset) && offset >= -840 && offset <= 840 ? offset : 0;
+};
+
+const isValidDateParts = (year: number, month: number, day: number) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+};
+
+const localDatePartsToUtcIso = (year: number, month: number, day: number, tzOffsetMinutes: number) => {
+  return new Date(Date.UTC(year, month - 1, day) + tzOffsetMinutes * 60 * 1000).toISOString();
+};
+
+const resolveChatLogDateRange = (input: ChatLogRangeInput | undefined, now: Date): ChatLogDateRange => {
+  const tzOffsetMinutes = parseChatLogTimezoneOffset(input?.tzOffsetMinutes);
+  const dayRaw = String(input?.day || "").trim();
+  const monthRaw = String(input?.month || "").trim();
+
+  const dayMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dayRaw);
+  if (dayMatch) {
+    const year = Number(dayMatch[1]);
+    const month = Number(dayMatch[2]);
+    const day = Number(dayMatch[3]);
+    if (!isValidDateParts(year, month, day)) {
+      throw new Error("Invalid chatlog day");
+    }
+
+    const startIso = localDatePartsToUtcIso(year, month, day, tzOffsetMinutes);
+    const endIso = localDatePartsToUtcIso(year, month, day + 1, tzOffsetMinutes);
+    return {
+      startIso,
+      endIso,
+      month: `${dayMatch[1]}-${dayMatch[2]}`,
+      day: dayRaw,
+      label: dayRaw,
+      mode: "day",
+      windowDays: 1,
+    };
+  }
+
+  if (dayRaw) {
+    throw new Error("Invalid chatlog day");
+  }
+
+  const monthMatch = /^(\d{4})-(\d{2})$/.exec(monthRaw);
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]);
+    if (month < 1 || month > 12) {
+      throw new Error("Invalid chatlog month");
+    }
+
+    const startIso = localDatePartsToUtcIso(year, month, 1, tzOffsetMinutes);
+    const endIso = localDatePartsToUtcIso(year, month + 1, 1, tzOffsetMinutes);
+    const windowDays = Math.max(1, Math.round((new Date(endIso).getTime() - new Date(startIso).getTime()) / (24 * 60 * 60 * 1000)));
+    return {
+      startIso,
+      endIso,
+      month: monthRaw,
+      day: "",
+      label: monthRaw,
+      mode: "month",
+      windowDays,
+    };
+  }
+
+  if (monthRaw) {
+    throw new Error("Invalid chatlog month");
+  }
+
+  return {
+    startIso: new Date(now.getTime() - CHATLOG_DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+    endIso: now.toISOString(),
+    month: "",
+    day: "",
+    label: `Last ${CHATLOG_DEFAULT_WINDOW_DAYS} days`,
+    mode: "recent",
+    windowDays: CHATLOG_DEFAULT_WINDOW_DAYS,
+  };
+};
+
 type AccountAuthRow = AccountRow & {
   password_hash: string;
   password_salt: string;
@@ -109,6 +255,10 @@ type CharacterRow = {
   created_at: string;
   updated_at: string;
   last_used_at: string | null;
+  total_play_seconds: number;
+  current_session_started_at: string | null;
+  activity_by_month?: number[];
+  monthly_activity_recorded?: boolean;
 };
 
 type AccountSessionRow = {
@@ -263,12 +413,14 @@ const SECURITY_QUESTION_OPTIONS: SecurityQuestionOption[] = [
   { key: "first_character", prompt: "What was the name of the first roleplay character you ever made?" },
 ];
 
-const SECURITY_QUESTION_COUNT = 3;
+const SECURITY_QUESTION_COUNT = 1;
 const LOGIN_OTP_TTL_MINUTES = 15;
 const AUTH_CHALLENGE_PURPOSE_LOGIN = "LOGIN_STEP_UP";
 const AUTH_CHALLENGE_PURPOSE_SECURITY_RECOVERY = "SECURITY_RECOVERY";
 const AUTH_CHALLENGE_PURPOSE_TOTP_SETUP = "TOTP_SETUP";
+const AUTH_CHALLENGE_PURPOSE_DISCORD_LINK = "DISCORD_LINK";
 const WHITELIST_FORM_CODE = "WHITELIST_RP";
+const SKYRIM_UNBOUND_DISCORD_INVITE = "https://discord.gg/Bf7drbpWKK";
 
 const FORUM_GROUP_OPTIONS: ForumGroupOption[] = [
   {
@@ -343,7 +495,7 @@ const BLOCKED_CHARACTER_NAME_PHRASES: Array<Array<string>> = [
 ];
 
 class UcpDatabase {
-  constructor(private dbFilePath: string) {
+  constructor(private dbFilePath: string, private settings: Settings) {
     fs.mkdirSync(path.dirname(this.dbFilePath), { recursive: true });
     this.db = new DatabaseSync(this.dbFilePath);
     this.db.exec("PRAGMA foreign_keys = ON");
@@ -379,6 +531,8 @@ class UcpDatabase {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         last_used_at TEXT,
+        total_play_seconds INTEGER NOT NULL DEFAULT 0,
+        current_session_started_at TEXT,
         UNIQUE(account_id, slot_index)
       );
 
@@ -391,6 +545,20 @@ class UcpDatabase {
         created_at TEXT NOT NULL,
         expires_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS character_monthly_playtime (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        character_id INTEGER NOT NULL REFERENCES characters(id) ON DELETE CASCADE,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL CHECK(month BETWEEN 1 AND 12),
+        play_seconds INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
+        UNIQUE(character_id, year, month)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_character_monthly_playtime_character_year
+      ON character_monthly_playtime(character_id, year);
 
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -511,6 +679,9 @@ class UcpDatabase {
       ON character_chatlog_entries(created_at);
     `);
     this.db.exec(COMMUNITY_EVENT_SCHEMA_SQL);
+    this.ensureCharacterPlaytimeColumns();
+    this.closeStaleCharacterPlaytimeSessions();
+    this.pruneExtraSecurityQuestions();
     this.repairLegacyCharacterNames();
   }
 
@@ -935,11 +1106,11 @@ class UcpDatabase {
     for (const question of questions) {
       const answer = answers.get(question.question_key);
       if (!answer) {
-        throw new Error("Every recovery question must be answered");
+        throw new Error("The recovery question must be answered");
       }
       const expectedHash = this.hashSecurityAnswer(answer, question.answer_salt);
       if (!crypto.timingSafeEqual(Buffer.from(expectedHash, "hex"), Buffer.from(question.answer_hash, "hex"))) {
-        throw new Error("One or more recovery answers are incorrect");
+        throw new Error("The recovery answer is incorrect");
       }
     }
 
@@ -1286,12 +1457,13 @@ class UcpDatabase {
   }
 
   listCharacters(accountId: number) {
-    return this.db.prepare(`
-      SELECT id, account_id, slot_index, name, profile_id, created_at, updated_at, last_used_at
+    const rows = this.db.prepare(`
+      SELECT id, account_id, slot_index, name, profile_id, created_at, updated_at, last_used_at, total_play_seconds, current_session_started_at
       FROM characters
       WHERE account_id = ?
       ORDER BY slot_index ASC
     `).all(accountId) as CharacterRow[];
+    return rows.map((row) => this.withEffectivePlaytime(row));
   }
 
   createCharacter(sessionToken: string) {
@@ -1387,6 +1559,8 @@ class UcpDatabase {
     const serverRecord = this.getServerRecord(ctx.account.id, ctx.selectedCharacter?.id ?? null);
     const activeSessionCount = this.countActiveSessions(ctx.account.id);
     const accountCreatedAt = String(ctx.account.createdAt || "");
+    const totalPlaySeconds = characters.reduce((sum, character) => sum + Math.max(0, Number(character.total_play_seconds || 0)), 0);
+    const lastOnlineAt = this.getMostRecentCharacterOnlineAt(characters);
     const timeline = this.buildTimeline({
       accountCreatedAt,
       characters,
@@ -1403,6 +1577,8 @@ class UcpDatabase {
         accountAgeDays: accountCreatedAt ? Math.max(0, Math.floor((Date.now() - new Date(accountCreatedAt).getTime()) / (24 * 60 * 60 * 1000))) : 0,
         characterCount: characters.length,
         activeSessions: activeSessionCount,
+        totalPlaySeconds,
+        lastOnlineAt,
       },
       tickets,
       applications,
@@ -1459,6 +1635,92 @@ class UcpDatabase {
     return this.getCommunityProfile(ctx.account.id);
   }
 
+  createDiscordLinkRequest(sessionToken: string, config: DiscordLinkConfig) {
+    const ctx = this.requireSession(sessionToken);
+    this.assertWhitelistUnlocked(ctx.account.id);
+
+    if (config.mode === "invite") {
+      return {
+        mode: config.mode,
+        url: config.url,
+        external: true,
+        expiresAt: null as string | null,
+      };
+    }
+
+    const challenge = this.createAuthChallenge({
+      accountId: ctx.account.id,
+      purpose: AUTH_CHALLENGE_PURPOSE_DISCORD_LINK,
+      expiresInMinutes: 10,
+      state: {
+        redirectUri: config.redirectUri,
+      },
+    });
+    const authorizationUrl = new URL("https://discord.com/api/oauth2/authorize");
+    authorizationUrl.searchParams.set("client_id", config.clientId);
+    authorizationUrl.searchParams.set("redirect_uri", config.redirectUri);
+    authorizationUrl.searchParams.set("response_type", "code");
+    authorizationUrl.searchParams.set("scope", config.scope);
+    authorizationUrl.searchParams.set("state", challenge.id);
+    if (config.prompt) {
+      authorizationUrl.searchParams.set("prompt", config.prompt);
+    }
+
+    return {
+      mode: config.mode,
+      url: authorizationUrl.toString(),
+      external: false,
+      expiresAt: challenge.expires_at,
+    };
+  }
+
+  completeDiscordLink(challengeTokenRaw: string, expectedRedirectUri: string, discordUser: DiscordOAuthUser) {
+    const challengeToken = String(challengeTokenRaw || "").trim();
+    if (!challengeToken) {
+      throw new Error("Discord link state is missing");
+    }
+
+    const challenge = this.requireAuthChallenge(challengeToken, AUTH_CHALLENGE_PURPOSE_DISCORD_LINK);
+    if (!challenge.account_id) {
+      throw new Error("Discord link state is invalid");
+    }
+
+    const challengeState = this.parseChallengeState<{ redirectUri?: string }>(challenge.state_json);
+    if (challengeState.redirectUri && challengeState.redirectUri !== expectedRedirectUri) {
+      throw new Error("Discord link redirect does not match this server");
+    }
+
+    const discordUserId = String(discordUser.id || "").trim();
+    if (!discordUserId) {
+      throw new Error("Discord did not return an account id");
+    }
+
+    const alreadyLinked = this.db.prepare(`
+      SELECT account_id
+      FROM account_discord_links
+      WHERE discord_user_id = ? AND account_id != ?
+      LIMIT 1
+    `).get(discordUserId, challenge.account_id) as { account_id: number } | undefined;
+    if (alreadyLinked) {
+      throw new Error("That Discord account is already linked to another UCP account");
+    }
+
+    const now = this.nowIso();
+    const displayName = formatDiscordDisplayName(discordUser);
+    this.db.prepare(`
+      INSERT INTO account_discord_links (account_id, discord_user_id, discord_username, linked_at, updated_at, claim_state_json)
+      VALUES (?, ?, ?, ?, ?, '{}')
+      ON CONFLICT(account_id) DO UPDATE SET
+        discord_user_id = excluded.discord_user_id,
+        discord_username = excluded.discord_username,
+        linked_at = excluded.linked_at,
+        updated_at = excluded.updated_at
+    `).run(challenge.account_id, discordUserId, displayName, now, now);
+    this.completeAuthChallenge(challenge.id);
+
+    return this.getCommunityProfile(challenge.account_id);
+  }
+
   private getCommunityProfile(accountId: number) {
     this.ensureForumGroupPreferences(accountId);
     const eligibleGroups = this.getActiveForumGroupEntitlements(accountId)
@@ -1472,6 +1734,7 @@ class UcpDatabase {
     const secondaryGroupCodes = this.parseStringListJson(preferences?.secondary_group_codes_json, eligibleCodeSet)
       .filter((code) => code !== primaryGroupCode);
     const discordLink = this.getDiscordLink(accountId);
+    const discordLinkClientState = getDiscordLinkClientState(this.settings);
     const claimedGroupCodes = this.parseClaimedGroupCodes(discordLink?.claim_state_json, eligibleCodeSet);
     const missingClaimableGroups = eligibleGroups.filter((group) => !claimedGroupCodes.includes(group.code));
 
@@ -1503,7 +1766,10 @@ class UcpDatabase {
         displayName: discordLink?.discord_username || null,
         discordUserId: discordLink?.discord_user_id || null,
         linkedAt: discordLink?.linked_at || null,
-        linkFlowAvailable: false,
+        linkFlowAvailable: !!discordLinkClientState,
+        linkMode: discordLinkClientState?.mode ?? null,
+        linkLabel: discordLinkClientState?.label ?? null,
+        linkUrl: discordLinkClientState?.url ?? null,
         autoClaimPlanned: true,
         missingClaimableGroups: missingClaimableGroups.map((option) => ({ ...option })),
       },
@@ -1653,9 +1919,16 @@ class UcpDatabase {
     `).all(accountId) as SecurityQuestionRow[];
   }
 
+  private pruneExtraSecurityQuestions() {
+    this.db.prepare(`
+      DELETE FROM account_security_questions
+      WHERE slot_index > ?
+    `).run(SECURITY_QUESTION_COUNT);
+  }
+
   private normalizeSecurityQuestionSet(questionsRaw: unknown) {
     if (!Array.isArray(questionsRaw) || questionsRaw.length !== SECURITY_QUESTION_COUNT) {
-      throw new Error(`Choose exactly ${SECURITY_QUESTION_COUNT} recovery questions`);
+      throw new Error(`Choose exactly ${SECURITY_QUESTION_COUNT} recovery question`);
     }
 
     const seen = new Set<string>();
@@ -1663,7 +1936,7 @@ class UcpDatabase {
       const record = (entry && typeof entry === "object") ? entry as Record<string, unknown> : {};
       const questionKey = String(record.questionKey || "").trim();
       if (!SECURITY_QUESTION_OPTIONS.some((option) => option.key === questionKey)) {
-        throw new Error("One or more recovery questions are invalid");
+        throw new Error("The recovery question is invalid");
       }
       if (seen.has(questionKey)) {
         throw new Error("Recovery questions must be unique");
@@ -1997,6 +2270,44 @@ class UcpDatabase {
     `).get(sessionToken, serverMasterKey) as PlaySessionRow | undefined;
   }
 
+  beginCharacterPlaytime(accountId: number, characterId: number) {
+    const character = this.getCharacterByIdRaw(characterId);
+    if (!character || character.account_id !== accountId) {
+      throw new Error("Character not found");
+    }
+
+    const now = this.nowDate();
+    const nowIso = now.toISOString();
+    const totalPlaySeconds = this.getCharacterPlaySeconds(character, now);
+    this.addCharacterMonthlyPlaytime(accountId, characterId, character.current_session_started_at, now);
+    this.db.prepare(`
+      UPDATE characters
+      SET total_play_seconds = ?, current_session_started_at = ?, last_used_at = ?, updated_at = ?
+      WHERE id = ? AND account_id = ?
+    `).run(totalPlaySeconds, nowIso, nowIso, nowIso, characterId, accountId);
+
+    return this.getCharacterById(characterId)!;
+  }
+
+  finishCharacterPlaytime(accountId: number, characterId: number) {
+    const character = this.getCharacterByIdRaw(characterId);
+    if (!character || character.account_id !== accountId) {
+      return null;
+    }
+
+    const now = this.nowDate();
+    const nowIso = now.toISOString();
+    const totalPlaySeconds = this.getCharacterPlaySeconds(character, now);
+    this.addCharacterMonthlyPlaytime(accountId, characterId, character.current_session_started_at, now);
+    this.db.prepare(`
+      UPDATE characters
+      SET total_play_seconds = ?, current_session_started_at = NULL, last_used_at = ?, updated_at = ?
+      WHERE id = ? AND account_id = ?
+    `).run(totalPlaySeconds, nowIso, nowIso, characterId, accountId);
+
+    return this.getCharacterById(characterId);
+  }
+
   private requireSession(sessionToken: string) {
     const ctx = this.getSessionContext(sessionToken);
     if (!ctx) {
@@ -2012,6 +2323,48 @@ class UcpDatabase {
       WHERE account_id = ? AND expires_at > ?
     `).get(accountId, this.nowIso()) as { count?: number } | undefined;
     return Number(row?.count || 0);
+  }
+
+  getPublicStats() {
+    const scalarCount = (sql: string, ...params: SupportedValueType[]) => {
+      const row = this.db.prepare(sql).get(...params) as { count?: number } | undefined;
+      return Number(row?.count || 0);
+    };
+
+    const applicationCounts = {
+      total: 0,
+      submitted: 0,
+      underReview: 0,
+      approved: 0,
+      denied: 0,
+    };
+
+    if (this.tableExists("application_submissions")) {
+      const rows = this.db.prepare(`
+        SELECT status, COUNT(*) AS count
+        FROM application_submissions
+        GROUP BY status
+      `).all() as Array<{ status: string; count: number }>;
+
+      const countByStatus = new Map<string, number>();
+      rows.forEach((entry) => countByStatus.set(String(entry.status || "").toUpperCase(), Number(entry.count || 0)));
+      applicationCounts.total = rows.reduce((sum, entry) => sum + Number(entry.count || 0), 0);
+      applicationCounts.submitted = Number(countByStatus.get("SUBMITTED") || 0);
+      applicationCounts.underReview = Number(countByStatus.get("UNDER_REVIEW") || 0);
+      applicationCounts.approved = Number(countByStatus.get("APPROVED") || 0);
+      applicationCounts.denied = Number(countByStatus.get("DENIED") || 0);
+      applicationCounts.total = applicationCounts.submitted
+        + applicationCounts.underReview
+        + applicationCounts.approved
+        + applicationCounts.denied;
+    }
+
+    return {
+      registeredUsers: scalarCount("SELECT COUNT(*) AS count FROM accounts"),
+      applications: applicationCounts,
+      playerHorses: 0,
+      properties: 0,
+    };
   }
 
   private getStaffProfile(accountId: number) {
@@ -2309,12 +2662,13 @@ class UcpDatabase {
     }
 
     const rows = this.db.prepare(`
-      SELECT punishment_type, status, issued_at, starts_at, expires_at, revoked_at, reason_public
-      FROM punishments
-      WHERE account_id = ? OR (? IS NOT NULL AND character_id = ?)
-      ORDER BY issued_at DESC, id DESC
-      LIMIT 24
-    `).all(accountId, selectedCharacterId, selectedCharacterId) as Array<{
+      SELECT p.id, p.punishment_type, p.status, p.issued_at, p.starts_at, p.expires_at, p.revoked_at, p.reason_public
+      FROM punishments p
+      LEFT JOIN characters c ON c.id = p.character_id
+      WHERE p.account_id = ? OR c.account_id = ? OR (? IS NOT NULL AND p.character_id = ?)
+      ORDER BY p.issued_at DESC, p.id DESC
+    `).all(accountId, accountId, selectedCharacterId, selectedCharacterId) as Array<{
+      id: number;
       punishment_type: string;
       status: string;
       issued_at: string;
@@ -2324,7 +2678,17 @@ class UcpDatabase {
       reason_public: string | null;
     }>;
 
-    const now = Date.now();
+    const now = this.nowDate();
+    const nowMs = now.getTime();
+    const standingWindowStartMs = shiftDateByUtcMonths(now, -SERVER_RECORD_STANDING_MONTHS).getTime();
+    const issuedRows = rows
+      .map((row) => ({
+        row,
+        issuedAtMs: new Date(row.issued_at).getTime(),
+      }))
+      .filter((entry) => Number.isFinite(entry.issuedAtMs) && entry.issuedAtMs <= nowMs);
+    const standingWindowRows = issuedRows.filter((entry) => entry.issuedAtMs >= standingWindowStartMs);
+
     const summary = {
       warnings: 0,
       kicks: 0,
@@ -2332,11 +2696,11 @@ class UcpDatabase {
       bans: 0,
       mutes: 0,
       freezes: 0,
-      total: rows.length,
+      total: standingWindowRows.length,
       active: 0,
     };
 
-    rows.forEach((row) => {
+    standingWindowRows.forEach(({ row }) => {
       const kind = String(row.punishment_type || "").toUpperCase();
       if (kind === "WARNING") {
         summary.warnings += 1;
@@ -2348,29 +2712,59 @@ class UcpDatabase {
         summary.mutes += 1;
       } else if (kind === "FREEZE") {
         summary.freezes += 1;
-      } else if (kind === "TEMP_BAN" || kind === "PERM_BAN") {
+      } else if (isServerRecordBanKind(kind)) {
         summary.bans += 1;
       }
+    });
 
-      const hasExpired = row.expires_at ? new Date(row.expires_at).getTime() <= now : false;
+    rows.forEach((row) => {
+      const hasExpired = row.expires_at ? new Date(row.expires_at).getTime() <= nowMs : false;
       const isActive = String(row.status || "").toUpperCase() === "ACTIVE" && !row.revoked_at && !hasExpired;
       if (isActive) {
         summary.active += 1;
       }
     });
 
-    let standing = "Good Standing";
-    if (summary.bans > 0 && summary.active > 0) {
-      standing = "Restricted";
-    } else if (summary.active > 0) {
-      standing = "Limited";
-    } else if (summary.total > 0) {
-      standing = "Observed";
-    }
+    const standingEvents = issuedRows
+      .filter(({ row }) => {
+        const kind = String(row.punishment_type || "").toUpperCase();
+        return kind === "JAIL" || isServerRecordBanKind(kind);
+      })
+      .sort((a, b) => a.issuedAtMs - b.issuedAtMs || Number(a.row.id || 0) - Number(b.row.id || 0));
+
+    const badStandingUntilMs = standingEvents.reduce((latestUntil, entry) => {
+      const windowStartMs = shiftDateByUtcMonths(new Date(entry.issuedAtMs), -SERVER_RECORD_STANDING_MONTHS).getTime();
+      let jails = 0;
+      let bans = 0;
+
+      standingEvents.forEach((candidate) => {
+        if (candidate.issuedAtMs < windowStartMs || candidate.issuedAtMs > entry.issuedAtMs) {
+          return;
+        }
+
+        const kind = String(candidate.row.punishment_type || "").toUpperCase();
+        if (kind === "JAIL") {
+          jails += 1;
+        } else if (isServerRecordBanKind(kind)) {
+          bans += 1;
+        }
+      });
+
+      if (!isBadStandingWindow(jails, bans)) {
+        return latestUntil;
+      }
+
+      const untilMs = shiftDateByUtcMonths(new Date(entry.issuedAtMs), SERVER_RECORD_STANDING_MONTHS).getTime();
+      return Math.max(latestUntil, untilMs);
+    }, 0);
+
+    const standing = badStandingUntilMs > nowMs ? "Bad Standing" : "Good Standing";
 
     return {
       standing,
       ...summary,
+      standingWindowMonths: SERVER_RECORD_STANDING_MONTHS,
+      badStandingUntil: badStandingUntilMs > nowMs ? new Date(badStandingUntilMs).toISOString() : null,
       lastActionAt: rows[0]?.issued_at ?? null,
       recent: rows.slice(0, 6).map((row) => ({
         type: row.punishment_type,
@@ -2381,7 +2775,13 @@ class UcpDatabase {
     };
   }
 
-  getCharacterChatLogs(sessionToken: string, requestedCharacterId?: number | null, offsetRaw?: number, limitRaw?: number): {
+  getCharacterChatLogs(
+    sessionToken: string,
+    requestedCharacterId?: number | null,
+    offsetRaw?: number,
+    limitRaw?: number,
+    rangeInput?: ChatLogRangeInput
+  ): {
     windowDays: number;
     offset: number;
     limit: number;
@@ -2399,9 +2799,11 @@ class UcpDatabase {
       world: string | null;
       witnessedAt: string;
     }>;
+    range: ChatLogDateRange;
   } {
     const ctx = this.requireSession(sessionToken);
     this.assertWhitelistUnlocked(ctx.account.id);
+    const range = resolveChatLogDateRange(rangeInput, this.nowDate());
 
     const characters = this.listCharacters(ctx.account.id);
     const fallbackCharacter = ctx.selectedCharacter ?? characters[0] ?? null;
@@ -2418,26 +2820,26 @@ class UcpDatabase {
         hasMore: false,
         character: null,
         items: [],
+        range,
       };
     }
 
     const offset = Math.max(0, Number.isFinite(Number(offsetRaw)) ? Number(offsetRaw) : 0);
     const limit = Math.max(20, Math.min(200, Number.isFinite(Number(limitRaw)) ? Number(limitRaw) : 100));
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const totalRow = this.db.prepare(`
       SELECT COUNT(*) AS count
       FROM character_chatlog_entries
-      WHERE witness_profile_id = ? AND created_at >= ?
-    `).get(requested.profile_id, since) as { count?: number } | undefined;
+      WHERE witness_profile_id = ? AND created_at >= ? AND created_at < ?
+    `).get(requested.profile_id, range.startIso, range.endIso) as { count?: number } | undefined;
 
     const rows = this.db.prepare(`
       SELECT id, witness_profile_id, speaker_profile_id, speaker_name, message_text, chat_kind, radius, color, world_desc, created_at
       FROM character_chatlog_entries
-      WHERE witness_profile_id = ? AND created_at >= ?
+      WHERE witness_profile_id = ? AND created_at >= ? AND created_at < ?
       ORDER BY created_at DESC, id DESC
       LIMIT ? OFFSET ?
-    `).all(requested.profile_id, since, limit, offset) as Array<{
+    `).all(requested.profile_id, range.startIso, range.endIso, limit, offset) as Array<{
       id: number;
       witness_profile_id: number;
       speaker_profile_id: number | null;
@@ -2452,12 +2854,12 @@ class UcpDatabase {
 
     const total = Number(totalRow?.count ?? 0);
     return {
-      windowDays: 7,
+      windowDays: range.windowDays,
       offset,
       limit,
       total,
       hasMore: offset + rows.length < total,
-        character: requested,
+      character: requested,
       items: rows.map((row) => ({
         id: row.id,
         speakerProfileId: row.speaker_profile_id,
@@ -2469,6 +2871,75 @@ class UcpDatabase {
         world: row.world_desc,
         witnessedAt: row.created_at,
       })),
+      range,
+    };
+  }
+
+  getCharacterChatLogDownload(sessionToken: string, requestedCharacterId?: number | null, rangeInput?: ChatLogRangeInput) {
+    const ctx = this.requireSession(sessionToken);
+    this.assertWhitelistUnlocked(ctx.account.id);
+    const range = resolveChatLogDateRange(rangeInput, this.nowDate());
+
+    const characters = this.listCharacters(ctx.account.id);
+    const fallbackCharacter = ctx.selectedCharacter ?? characters[0] ?? null;
+    const requested = requestedCharacterId
+      ? characters.find((character) => Number(character.id) === Number(requestedCharacterId)) ?? null
+      : fallbackCharacter;
+
+    if (!requested) {
+      throw new Error("Character not found");
+    }
+
+    const rows = this.db.prepare(`
+      SELECT id, speaker_profile_id, speaker_name, message_text, chat_kind, radius, color, world_desc, created_at
+      FROM character_chatlog_entries
+      WHERE witness_profile_id = ? AND created_at >= ? AND created_at < ?
+      ORDER BY created_at ASC, id ASC
+      LIMIT ?
+    `).all(requested.profile_id, range.startIso, range.endIso, CHATLOG_MAX_DOWNLOAD_ROWS) as Array<{
+      id: number;
+      speaker_profile_id: number | null;
+      speaker_name: string;
+      message_text: string;
+      chat_kind: string;
+      radius: number;
+      color: string | null;
+      world_desc: string | null;
+      created_at: string;
+    }>;
+
+    const characterName = this.isCharacterUnfinalized(requested.name)
+      ? `slot-${requested.slot_index}`
+      : requested.name;
+    const safeCharacterName = String(characterName || `character-${requested.id}`)
+      .trim()
+      .replace(/[^a-z0-9_-]+/gi, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || `character-${requested.id}`;
+    const safeRange = String(range.day || range.month || "recent").replace(/[^0-9a-z_-]+/gi, "-");
+    const lines = [
+      "Skyrim Unbound Chat Logs",
+      `Character: ${this.isCharacterUnfinalized(requested.name) ? `Slot ${requested.slot_index}` : requested.name}`,
+      `Range: ${range.label}`,
+      `Entries: ${rows.length}${rows.length >= CHATLOG_MAX_DOWNLOAD_ROWS ? ` (limited to ${CHATLOG_MAX_DOWNLOAD_ROWS})` : ""}`,
+      "",
+      ...rows.map((row) => {
+        const timestamp = new Date(row.created_at).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, " UTC");
+        const kind = String(row.chat_kind || "say").trim() || "say";
+        const speaker = String(row.speaker_name || "Unknown").trim() || "Unknown";
+        const world = row.world_desc ? ` | ${row.world_desc}` : "";
+        const message = String(row.message_text || "").replace(/\r?\n/g, " ");
+        return `[${timestamp}] ${speaker} (${kind}, radius ${Number(row.radius || 0)}${world}): ${message}`;
+      }),
+      "",
+    ];
+
+    return {
+      fileName: `chatlogs-${safeCharacterName}-${safeRange}.txt`,
+      text: `\uFEFF${lines.join("\r\n")}`,
+      total: rows.length,
+      range,
+      character: requested,
     };
   }
 
@@ -2631,11 +3102,152 @@ class UcpDatabase {
   }
 
   private getCharacterById(characterId: number) {
+    const row = this.getCharacterByIdRaw(characterId);
+    return row ? this.withEffectivePlaytime(row) : undefined;
+  }
+
+  private getCharacterByIdRaw(characterId: number) {
     return this.db.prepare(`
-      SELECT id, account_id, slot_index, name, profile_id, created_at, updated_at, last_used_at
+      SELECT id, account_id, slot_index, name, profile_id, created_at, updated_at, last_used_at, total_play_seconds, current_session_started_at
       FROM characters
       WHERE id = ?
     `).get(characterId) as CharacterRow | undefined;
+  }
+
+  private getCharacterPlaySeconds(character: Pick<CharacterRow, "total_play_seconds" | "current_session_started_at">, now = this.nowDate()) {
+    const storedSeconds = Math.max(0, Math.floor(Number(character.total_play_seconds || 0)));
+    const activeSeconds = this.getElapsedSeconds(character.current_session_started_at, now);
+    return storedSeconds + activeSeconds;
+  }
+
+  private withEffectivePlaytime(character: CharacterRow): CharacterRow {
+    const now = this.nowDate();
+    const monthlyActivity = this.getCharacterMonthlyActivity(character, now);
+    return {
+      ...character,
+      total_play_seconds: this.getCharacterPlaySeconds(character, now),
+      activity_by_month: monthlyActivity.activityByMonth,
+      monthly_activity_recorded: monthlyActivity.hasMonthlyActivity,
+    };
+  }
+
+  private getCharacterMonthlyActivity(character: CharacterRow, now = this.nowDate()) {
+    const year = now.getUTCFullYear();
+    const secondsByMonth = [...EMPTY_CHARACTER_MONTHLY_ACTIVITY] as number[];
+    let hasMonthlyActivity = false;
+
+    const rows = this.db.prepare(`
+      SELECT month, play_seconds
+      FROM character_monthly_playtime
+      WHERE character_id = ? AND year = ?
+      ORDER BY month ASC
+    `).all(character.id, year) as Array<{ month: number; play_seconds: number }>;
+
+    for (const row of rows) {
+      const monthIndex = Number(row.month) - 1;
+      const playSeconds = Math.max(0, Math.floor(Number(row.play_seconds || 0)));
+      if (monthIndex >= 0 && monthIndex < secondsByMonth.length) {
+        secondsByMonth[monthIndex] += playSeconds;
+        hasMonthlyActivity = hasMonthlyActivity || playSeconds > 0;
+      }
+    }
+
+    for (const segment of this.getCharacterPlaytimeMonthSegments(character.current_session_started_at, now)) {
+      if (segment.year !== year) {
+        continue;
+      }
+      secondsByMonth[segment.month - 1] += segment.seconds;
+      hasMonthlyActivity = hasMonthlyActivity || segment.seconds > 0;
+    }
+
+    return {
+      activityByMonth: secondsByMonth.map((seconds) => Number((seconds / 3600).toFixed(2))),
+      hasMonthlyActivity,
+    };
+  }
+
+  private addCharacterMonthlyPlaytime(accountId: number, characterId: number, startedAtRaw: string | null | undefined, endedAt: Date) {
+    const segments = this.getCharacterPlaytimeMonthSegments(startedAtRaw, endedAt);
+    if (!segments.length) {
+      return;
+    }
+
+    const updatedAt = endedAt.toISOString();
+    const upsert = this.db.prepare(`
+      INSERT INTO character_monthly_playtime (account_id, character_id, year, month, play_seconds, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(character_id, year, month)
+      DO UPDATE SET
+        play_seconds = play_seconds + excluded.play_seconds,
+        updated_at = excluded.updated_at
+    `);
+
+    for (const segment of segments) {
+      upsert.run(accountId, characterId, segment.year, segment.month, segment.seconds, updatedAt);
+    }
+  }
+
+  private getCharacterPlaytimeMonthSegments(startedAtRaw: string | null | undefined, endedAt: Date) {
+    const startedAt = String(startedAtRaw || "").trim();
+    if (!startedAt) {
+      return [] as Array<{ year: number; month: number; seconds: number }>;
+    }
+
+    const start = new Date(startedAt);
+    if (!Number.isFinite(start.getTime()) || !Number.isFinite(endedAt.getTime()) || endedAt.getTime() <= start.getTime()) {
+      return [] as Array<{ year: number; month: number; seconds: number }>;
+    }
+
+    const segments: Array<{ year: number; month: number; seconds: number }> = [];
+    let cursor = new Date(start.getTime());
+
+    while (cursor.getTime() < endedAt.getTime()) {
+      const year = cursor.getUTCFullYear();
+      const month = cursor.getUTCMonth() + 1;
+      const nextMonth = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+      const segmentEnd = nextMonth.getTime() < endedAt.getTime() ? nextMonth : endedAt;
+      const seconds = Math.floor((segmentEnd.getTime() - cursor.getTime()) / 1000);
+
+      if (seconds > 0) {
+        segments.push({ year, month, seconds });
+      }
+
+      cursor = new Date(segmentEnd.getTime());
+    }
+
+    return segments;
+  }
+
+  private getElapsedSeconds(startedAtRaw: string | null | undefined, now = this.nowDate()) {
+    const startedAt = String(startedAtRaw || "").trim();
+    if (!startedAt) {
+      return 0;
+    }
+
+    const startedAtMs = new Date(startedAt).getTime();
+    const nowMs = now.getTime();
+    if (!Number.isFinite(startedAtMs) || !Number.isFinite(nowMs) || nowMs <= startedAtMs) {
+      return 0;
+    }
+
+    return Math.floor((nowMs - startedAtMs) / 1000);
+  }
+
+  private getMostRecentCharacterOnlineAt(characters: CharacterRow[]) {
+    let latestMs = 0;
+    let latestIso: string | null = null;
+
+    for (const character of characters) {
+      for (const candidate of [character.current_session_started_at, character.last_used_at]) {
+        const candidateMs = new Date(String(candidate || "")).getTime();
+        if (Number.isFinite(candidateMs) && candidateMs > latestMs) {
+          latestMs = candidateMs;
+          latestIso = String(candidate);
+        }
+      }
+    }
+
+    return latestIso;
   }
 
   private toPublicAccount(account: AccountRow) {
@@ -2655,6 +3267,46 @@ class UcpDatabase {
       WHERE type = 'table' AND name = ?
     `).get(tableName) as { name: string } | undefined;
     return !!row;
+  }
+
+  private ensureCharacterPlaytimeColumns() {
+    const columns = new Set(
+      (this.db.prepare(`PRAGMA table_info(characters)`).all() as Array<{ name: string }>)
+        .map((row) => row.name)
+    );
+
+    if (!columns.has("total_play_seconds")) {
+      this.db.exec(`ALTER TABLE characters ADD COLUMN total_play_seconds INTEGER NOT NULL DEFAULT 0`);
+    }
+
+    if (!columns.has("current_session_started_at")) {
+      this.db.exec(`ALTER TABLE characters ADD COLUMN current_session_started_at TEXT`);
+    }
+  }
+
+  private closeStaleCharacterPlaytimeSessions() {
+    const rows = this.db.prepare(`
+      SELECT id, account_id, slot_index, name, profile_id, created_at, updated_at, last_used_at, total_play_seconds, current_session_started_at
+      FROM characters
+      WHERE current_session_started_at IS NOT NULL
+    `).all() as CharacterRow[];
+
+    if (!rows.length) {
+      return;
+    }
+
+    const now = this.nowDate();
+    const nowIso = now.toISOString();
+    const update = this.db.prepare(`
+      UPDATE characters
+      SET total_play_seconds = ?, current_session_started_at = NULL, last_used_at = ?, updated_at = ?
+      WHERE id = ?
+    `);
+
+    for (const row of rows) {
+      this.addCharacterMonthlyPlaytime(row.account_id, row.id, row.current_session_started_at, now);
+      update.run(this.getCharacterPlaySeconds(row, now), nowIso, nowIso, row.id);
+    }
   }
 
   private getCommunityEventById(eventId: number, accountId: number | null) {
@@ -3004,7 +3656,7 @@ let dbSingleton: UcpDatabase | null = null;
 
 const getDb = (settings: Settings) => {
   if (!dbSingleton) {
-    dbSingleton = new UcpDatabase(getDbPath(settings));
+    dbSingleton = new UcpDatabase(getDbPath(settings), settings);
   }
   return dbSingleton;
 };
@@ -3152,7 +3804,7 @@ function getRecoveryMailSettings(settings: Settings): RecoveryMailSettings | nul
     ?? asNonEmptyString(mailSource.fromAddress)
     ?? asNonEmptyString(mailSource.fromEmail);
 
-  if (!host || !from) {
+  if (!host || !from || /\.local(?:[>\s]|$)/i.test(from)) {
     return null;
   }
 
@@ -3211,7 +3863,7 @@ function getSocialLinks(settings: Settings) {
     {
       key: "discord",
       label: "Discord",
-      href: asNonEmptyString(socialSource.discord) ?? "https://discord.gg/k39uQ9Yudt",
+      href: asNonEmptyString(socialSource.discord) ?? SKYRIM_UNBOUND_DISCORD_INVITE,
     },
     {
       key: "forums",
@@ -3224,6 +3876,244 @@ function getSocialLinks(settings: Settings) {
       href: asNonEmptyString(socialSource.youtube) ?? "https://youtu.be/8ccDfIxCLlc",
     },
   ];
+}
+
+function getDiscordInviteUrl(settings: Settings) {
+  const settingsRecord = asRecord(settings.allSettings) ?? {};
+  const socialSource = asRecord(settingsRecord.socialLinks) ?? asRecord(settingsRecord.socials) ?? {};
+  const discordLinkSource = asRecord(settingsRecord.discordLink) ?? asRecord(settingsRecord.discordOAuth) ?? {};
+  return asNonEmptyString(discordLinkSource.inviteUrl)
+    ?? asNonEmptyString(discordLinkSource.url)
+    ?? asNonEmptyString(socialSource.discord)
+    ?? SKYRIM_UNBOUND_DISCORD_INVITE;
+}
+
+function getUcpPublicBaseUrl(settings: Settings, ctx?: KoaContext) {
+  const settingsRecord = asRecord(settings.allSettings) ?? {};
+  const configured = asNonEmptyString(settingsRecord.ucpPublicUrl)
+    ?? asNonEmptyString(settingsRecord.ucpUrl)
+    ?? asNonEmptyString(settingsRecord.publicUrl);
+  if (configured) {
+    return configured.endsWith("/") ? configured : `${configured}/`;
+  }
+
+  const origin = asNonEmptyString(ctx?.origin);
+  if (origin) {
+    try {
+      return new URL("/ucp/", origin).toString();
+    } catch {
+      return "";
+    }
+  }
+
+  return "";
+}
+
+function resolveAbsoluteHttpUrl(valueRaw: string, baseRaw?: string) {
+  try {
+    const direct = new URL(valueRaw);
+    return direct.protocol === "http:" || direct.protocol === "https:" ? direct.toString() : "";
+  } catch {
+    // try below with the configured public base URL
+  }
+
+  if (!baseRaw) {
+    return "";
+  }
+
+  try {
+    const resolved = new URL(valueRaw, baseRaw);
+    return resolved.protocol === "http:" || resolved.protocol === "https:" ? resolved.toString() : "";
+  } catch {
+    return "";
+  }
+}
+
+function getDiscordOAuthScope(source: Record<string, unknown>) {
+  const raw = source.scopes ?? source.scope;
+  const values = Array.isArray(raw)
+    ? raw
+    : typeof raw === "string"
+      ? raw.split(/[\s,]+/g)
+      : [];
+  const scopes = new Set(
+    values
+      .map((value) => String(value || "").trim())
+      .filter(Boolean)
+  );
+  scopes.add("identify");
+  return Array.from(scopes).join(" ");
+}
+
+function isPlaceholderDiscordOAuthValue(value: string | undefined) {
+  if (!value) {
+    return true;
+  }
+
+  const normalized = value.trim().toUpperCase();
+  return normalized === "CLIENT_ID_DE_LA_DISCORD"
+    || normalized === "CLIENT_SECRET_DE_LA_DISCORD"
+    || normalized === "YOUR_DISCORD_CLIENT_ID"
+    || normalized === "YOUR_DISCORD_CLIENT_SECRET"
+    || normalized === "DISCORD_CLIENT_ID"
+    || normalized === "DISCORD_CLIENT_SECRET";
+}
+
+function getDiscordLinkConfig(settings: Settings, ctx?: KoaContext): DiscordLinkConfig | null {
+  const settingsRecord = asRecord(settings.allSettings) ?? {};
+  const ucpSource = asRecord(settingsRecord.ucp) ?? {};
+  const discordOAuthSource = asRecord(settingsRecord.discordOAuth)
+    ?? asRecord(settingsRecord.discordLink)
+    ?? asRecord(settingsRecord.ucpDiscord)
+    ?? asRecord(ucpSource.discordOAuth)
+    ?? asRecord(ucpSource.discordLink)
+    ?? {};
+  const discordAuthSource = asRecord(settingsRecord.discordAuth) ?? {};
+
+  const clientIdRaw = asNonEmptyString(discordOAuthSource.clientId)
+    ?? asNonEmptyString(discordOAuthSource.applicationId)
+    ?? asNonEmptyString(discordAuthSource.clientId)
+    ?? asNonEmptyString(discordAuthSource.oauthClientId);
+  const clientSecretRaw = asNonEmptyString(discordOAuthSource.clientSecret)
+    ?? asNonEmptyString(discordOAuthSource.oauthClientSecret)
+    ?? asNonEmptyString(discordAuthSource.clientSecret)
+    ?? asNonEmptyString(discordAuthSource.oauthClientSecret);
+  const clientId = isPlaceholderDiscordOAuthValue(clientIdRaw) ? undefined : clientIdRaw;
+  const clientSecret = isPlaceholderDiscordOAuthValue(clientSecretRaw) ? undefined : clientSecretRaw;
+  const publicBaseUrl = getUcpPublicBaseUrl(settings, ctx);
+  const redirectUri = resolveAbsoluteHttpUrl(
+    asNonEmptyString(discordOAuthSource.redirectUri)
+      ?? asNonEmptyString(discordOAuthSource.callbackUrl)
+      ?? "/ucp/api/community/discord/callback",
+    publicBaseUrl
+  );
+
+  if (clientId && clientSecret && redirectUri) {
+    return {
+      mode: "oauth",
+      clientId,
+      clientSecret,
+      redirectUri,
+      scope: getDiscordOAuthScope(discordOAuthSource),
+      prompt: asNonEmptyString(discordOAuthSource.prompt) ?? null,
+    };
+  }
+
+  const inviteUrl = getDiscordInviteUrl(settings);
+  return inviteUrl
+    ? {
+        mode: "invite",
+        url: inviteUrl,
+      }
+    : null;
+}
+
+function getDiscordLinkClientState(settings: Settings) {
+  const config = getDiscordLinkConfig(settings);
+  if (!config) {
+    return null;
+  }
+
+  if (config.mode === "oauth") {
+    return {
+      mode: config.mode,
+      label: "Link Discord Account",
+      url: null as string | null,
+    };
+  }
+
+  return {
+    mode: config.mode,
+    label: "Join Discord",
+    url: config.url,
+  };
+}
+
+function buildUcpDiscordResultUrl(settings: Settings, ctx: KoaContext, status: "success" | "error", message?: string) {
+  const baseUrl = getUcpPublicBaseUrl(settings, ctx);
+  const fallbackPath = "/ucp/";
+  let url: URL;
+  try {
+    url = new URL(fallbackPath, baseUrl || asNonEmptyString(ctx?.origin) || "http://localhost");
+  } catch {
+    url = new URL("http://localhost/ucp/");
+  }
+  url.searchParams.set("tab", "friends");
+  url.searchParams.set("discordLink", status);
+  if (message) {
+    url.searchParams.set("discordMessage", message);
+  }
+
+  if (!baseUrl && !asNonEmptyString(ctx?.origin)) {
+    return `${fallbackPath}?${url.searchParams.toString()}`;
+  }
+  return url.toString();
+}
+
+function getDiscordApiError(payload: unknown, fallback: string) {
+  const record = asRecord(payload);
+  return asNonEmptyString(record?.error_description)
+    ?? asNonEmptyString(record?.message)
+    ?? asNonEmptyString(record?.error)
+    ?? fallback;
+}
+
+async function exchangeDiscordCodeForToken(config: DiscordOAuthLinkConfig, code: string) {
+  const body = new URLSearchParams();
+  body.set("client_id", config.clientId);
+  body.set("client_secret", config.clientSecret);
+  body.set("grant_type", "authorization_code");
+  body.set("code", code);
+  body.set("redirect_uri", config.redirectUri);
+
+  const response = await fetch("https://discord.com/api/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const payload = await response.json().catch(() => null);
+  const accessToken = asNonEmptyString(asRecord(payload)?.access_token);
+  if (!response.ok || !accessToken) {
+    throw new Error(getDiscordApiError(payload, "Discord authorization failed"));
+  }
+  return accessToken;
+}
+
+async function fetchDiscordCurrentUser(accessToken: string): Promise<DiscordOAuthUser> {
+  const response = await fetch("https://discord.com/api/users/@me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(getDiscordApiError(payload, "Could not read Discord account details"));
+  }
+  const user = asRecord(payload);
+  if (!user) {
+    throw new Error("Discord account response was empty");
+  }
+  return {
+    id: asNonEmptyString(user.id),
+    username: asNonEmptyString(user.username),
+    discriminator: asNonEmptyString(user.discriminator),
+    global_name: asNonEmptyString(user.global_name),
+  };
+}
+
+function formatDiscordDisplayName(user: DiscordOAuthUser) {
+  const username = String(user.username || "").trim() || "Discord user";
+  const globalName = String(user.global_name || "").trim();
+  const discriminator = String(user.discriminator || "").trim();
+  if (globalName && globalName !== username) {
+    return `${globalName} (@${username})`;
+  }
+  if (discriminator && discriminator !== "0") {
+    return `${username}#${discriminator}`;
+  }
+  return username;
 }
 
 function normalizeHostValue(hostRaw: unknown) {
@@ -3549,6 +4439,18 @@ export const resolveUcpPlaySession = (
   };
 };
 
+export const beginUcpCharacterPlaytime = (
+  settings: Settings,
+  accountId: number,
+  characterId: number
+) => getDb(settings).beginCharacterPlaytime(accountId, characterId);
+
+export const finishUcpCharacterPlaytime = (
+  settings: Settings,
+  accountId: number,
+  characterId: number
+) => getDb(settings).finishCharacterPlaytime(accountId, characterId);
+
 const getSessionTokenFromRequest = (ctx: KoaContext) => {
   const authHeader = String(ctx.get("authorization") || "");
   if (authHeader.toLowerCase().startsWith("bearer ")) {
@@ -3639,6 +4541,7 @@ export const attachUcpRoutes = (router: KoaRouter, settings: Settings) => {
       serverName: settings.allSettings?.name || "Skyrim Unbound",
       recoveryEnabled: getRecoveryMailSettings(settings) !== null,
       socialLinks: getSocialLinks(settings),
+      publicStats: getDb(settings).getPublicStats(),
     };
   });
 
@@ -4159,7 +5062,29 @@ export const attachUcpRoutes = (router: KoaRouter, settings: Settings) => {
         throw new Error("limit must be a positive integer");
       }
 
-      ctx.body = db.getCharacterChatLogs(sessionToken, requestedCharacterId, offset, limit);
+      ctx.body = db.getCharacterChatLogs(sessionToken, requestedCharacterId, offset, limit, {
+        month: String(ctx.query?.month || "").trim() || undefined,
+        day: String(ctx.query?.day || "").trim() || undefined,
+        tzOffsetMinutes: ctx.query?.tzOffsetMinutes,
+      });
+    });
+  });
+
+  router.get("/ucp/api/chatlogs/export", (ctx: KoaContext) => {
+    withAuthenticatedSession(settings, ctx, (db, sessionToken) => {
+      const requestedCharacterId = ctx.query?.characterId === undefined ? undefined : Number(ctx.query.characterId);
+      if (requestedCharacterId !== undefined && !Number.isInteger(requestedCharacterId)) {
+        throw new Error("characterId must be an integer");
+      }
+
+      const exportResult = db.getCharacterChatLogDownload(sessionToken, requestedCharacterId, {
+        month: String(ctx.query?.month || "").trim() || undefined,
+        day: String(ctx.query?.day || "").trim() || undefined,
+        tzOffsetMinutes: ctx.query?.tzOffsetMinutes,
+      });
+      ctx.set("Content-Type", "text/plain; charset=utf-8");
+      ctx.set("Content-Disposition", `attachment; filename="${exportResult.fileName}"`);
+      ctx.body = exportResult.text;
     });
   });
 
@@ -4202,6 +5127,49 @@ export const attachUcpRoutes = (router: KoaRouter, settings: Settings) => {
         ticket: db.createCommunityTicket(sessionToken, ctx.request.body || {}, getSessionMeta(ctx)),
       };
     });
+  });
+
+  router.post("/ucp/api/community/discord/link", (ctx: KoaContext) => {
+    const discordLinkConfig = getDiscordLinkConfig(settings, ctx);
+    if (!discordLinkConfig) {
+      writeError(ctx, 503, "Discord linking is not configured on this server");
+      return;
+    }
+
+    withAuthenticatedSession(settings, ctx, (db, sessionToken) => {
+      ctx.body = {
+        ok: true,
+        ...db.createDiscordLinkRequest(sessionToken, discordLinkConfig),
+      };
+    });
+  });
+
+  router.get("/ucp/api/community/discord/callback", async (ctx: KoaContext) => {
+    try {
+      const oauthError = asNonEmptyString(ctx.query?.error);
+      if (oauthError) {
+        throw new Error(asNonEmptyString(ctx.query?.error_description) ?? oauthError);
+      }
+
+      const code = asNonEmptyString(ctx.query?.code);
+      const stateToken = asNonEmptyString(ctx.query?.state);
+      if (!code || !stateToken) {
+        throw new Error("Discord callback is missing required parameters");
+      }
+
+      const discordLinkConfig = getDiscordLinkConfig(settings, ctx);
+      if (!discordLinkConfig || discordLinkConfig.mode !== "oauth") {
+        throw new Error("Discord OAuth linking is not configured on this server");
+      }
+
+      const accessToken = await exchangeDiscordCodeForToken(discordLinkConfig, code);
+      const discordUser = await fetchDiscordCurrentUser(accessToken);
+      getDb(settings).completeDiscordLink(stateToken, discordLinkConfig.redirectUri, discordUser);
+      ctx.redirect(buildUcpDiscordResultUrl(settings, ctx, "success"));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Discord linking failed";
+      ctx.redirect(buildUcpDiscordResultUrl(settings, ctx, "error", message));
+    }
   });
 
   router.post("/ucp/api/community/forum-groups", (ctx: KoaContext) => {

@@ -71,6 +71,12 @@ export class SkympClient extends ClientListener {
 
     storage[authGameDataStorageKey] = e.authGameData;
 
+    const networkingService = this.controller.lookupListener(networking.NetworkingService);
+    if (networkingService.isConnected()) {
+      this.pushConnectDebug("authAttemptClosingExistingConnection");
+      networkingService.close();
+    }
+
     this.startClient();
 
     // TODO: remove this when you will be able to see errors without console
